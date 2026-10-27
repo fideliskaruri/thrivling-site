@@ -69,11 +69,21 @@ export class StagePlayer {
     return { i, blend: p - i, done: i === last };
   }
 
-  draw(g: CanvasRenderingContext2D, i: number, blend: number) {
+  /** Stage for a growth fraction 0..1 (scroll-driven), falling back to the nearest decoded stage below it. */
+  atProgress(progress: number): { i: number; blend: number; done: boolean } {
+    const last = this.places.length - 1;
+    const p = Math.min(1, Math.max(0, progress)) * last;
+    let i = Math.floor(p);
+    while (i > 0 && !this.images[i]) i--;
+    const blend = this.images[i + 1] && i === Math.floor(p) ? p - i : 0;
+    return { i, blend, done: i === last };
+  }
+
+  draw(g: CanvasRenderingContext2D, i: number, blend: number, alpha = 1) {
     const below = this.images[i];
-    if (below) { g.globalAlpha = 1; drawPlace(g, this.places[i]!, below); }
+    if (below) { g.globalAlpha = alpha; drawPlace(g, this.places[i]!, below); }
     const above = this.images[i + 1];
-    if (above && blend > 0) { g.globalAlpha = blend; drawPlace(g, this.places[i + 1]!, above); }
+    if (above && blend > 0) { g.globalAlpha = blend * alpha; drawPlace(g, this.places[i + 1]!, above); }
     g.globalAlpha = 1;
   }
 }

@@ -1,6 +1,6 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { GlassSelect, type SelectOption } from "./components/GlassSelect";
-import { LeafIcon } from "./components/LeafIcon";
+import { DayCount } from "./components/DayCount";
 import { TreePicker } from "./components/TreePicker";
 import { TreeScene } from "./components/TreeScene";
 import { useReducedMotionPreference } from "./useReducedMotionPreference";
@@ -21,15 +21,40 @@ function BrandMark() {
   </a>;
 }
 
+/** The Play Console closed-testing list is this Google Group: joining it is joining the test. */
+const TESTER_GROUP_URL = "https://groups.google.com/g/thrivling-testers";
+
+/** The Google Play logo: four coloured triangles meeting at the centre. */
+function PlayLogo() {
+  return (
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+      <path d="M3.6 1.9 13.4 12 3.6 22.1c-.4-.2-.6-.6-.6-1.1V3c0-.5.2-.9.6-1.1Z" fill="#00A0FF" />
+      <path d="M3.6 1.9c.4-.2.9-.2 1.4.1l11.7 6.7-3.3 3.3Z" fill="#00E676" />
+      <path d="m16.7 8.7 3.5 2c.9.5.9 2 0 2.6l-3.5 2L13.4 12Z" fill="#FFC400" />
+      <path d="M13.4 12l3.3 3.3L5 22c-.5.3-1 .3-1.4.1Z" fill="#FF3D3D" />
+    </svg>
+  );
+}
+
 function TesterLink({ compact = false }: { compact?: boolean }) {
-  return <a className={`tester-link ${compact ? "tester-link--nav" : ""}`} href="#early-testers">Join early testers</a>;
+  return <a className={`tester-link ${compact ? "tester-link--nav" : ""}`} href="#early-testers" aria-label="Join early testers">
+    {compact ? <><span className="label-full">Join early testers</span><span className="label-short" aria-hidden="true">Join</span></> : "Join early testers"}
+  </a>;
 }
 
 export default function App() {
   const { choice, choose, phase, theme, notice } = useSky();
   const reduced = useReducedMotionPreference();
-  const [paused, setPaused] = useState(false);
-  const [replay, setReplay] = useState(0);
+  useEffect(() => {
+    const root = document.documentElement;
+    const on = () => {
+      root.dataset.scrolled = window.scrollY > 24 ? "1" : "0";
+      root.dataset.deep = window.scrollY > window.innerHeight * 0.8 ? "1" : "0";
+    };
+    on();
+    window.addEventListener("scroll", on, { passive: true });
+    return () => window.removeEventListener("scroll", on);
+  }, []);
   const [day, setDay] = useState(0);
   const style = {
     "--sky-top": theme.sky[0], "--sky-mid": theme.sky[1], "--sky-bottom": theme.sky[2],
@@ -50,85 +75,85 @@ export default function App() {
         <div className="world-hill world-hill--back" />
         <div className="world-hill world-hill--front" />
       </div>
-      <TreeScene paused={paused} reduced={reduced} replay={replay} time={phase} onDay={setDay} />
+      <TreeScene paused={false} reduced={reduced} time={phase} onDay={setDay} />
 
       <header className="site-header">
         <div className="nav-glass glass-pane">
           <BrandMark />
+          <div className="nav-counter" aria-live="polite" aria-label={`Day ${day}`}>
+            <DayCount day={day} />
+          </div>
+          <div className="nav-end">
           <nav className="main-nav" aria-label="Main navigation">
-            <a href="#trees">Trees</a><a href="#grove">The grove</a><a href="#privacy">Privacy</a>
+            <a href="#trees">Trees</a><a href="#grove">The grove</a>
           </nav>
-          <TesterLink compact />
+          <div className="nav-tools">
+            <GlassSelect label="Sky" value={choice} options={SKY_OPTIONS} onChange={choose} placement="below" />
+            <TesterLink compact />
+          </div>
+          </div>
         </div>
       </header>
+      {/* At the bottom on arrival; once scrolling starts it fades into the nav (see .nav-counter). */}
+      <div className="tree-counter glass-pane" aria-hidden="true">
+        <DayCount day={day} />
+      </div>
       {notice && <p className="preference-notice glass-pane" role="status">{notice}</p>}
 
       <main id="main">
         <section className="hero-section" aria-labelledby="hero-title">
+          <div className="hero-inner">
           <div className="hero-copy">
             <h1 id="hero-title">Progress that feels alive.</h1>
             <p className="hero-subhead">Whether you’re growing a daily ritual or quietly outgrowing a vice, Thrivling turns your days into a living companion.</p>
             <TesterLink />
+            {!reduced && <p className="scroll-hint" aria-hidden="true"><span /> Scroll to grow it</p>}
           </div>
-          <div className="hero-bar glass-pane">
-            <div className="hero-day" aria-live="polite">
-              <LeafIcon filled className="hero-day-leaf" />
-              <span className="hero-day-count">{day}<small>d</small></span>
-              <span className="hero-day-label">Sun Sprout</span>
-            </div>
-            <button type="button" className="hero-icon-button" aria-label="Replay tree growth" onClick={() => { setPaused(false); setReplay(n => n + 1); }}>
-              <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5M4 3v3.5h3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-            </button>
-            <GlassSelect label="Sky" value={choice} options={SKY_OPTIONS} onChange={choose} placement="above" />
-            <button type="button" className="hero-icon-button" aria-label={paused ? "Play animation" : "Pause animation"} aria-pressed={paused} onClick={() => setPaused(p => !p)}>
-              {paused
-                ? <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7 5l8 5-8 5z" fill="currentColor" /></svg>
-                : <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7 5v10M13 5v10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>}
-            </button>
+
           </div>
         </section>
 
-        <TreePicker reduced={reduced} />
-
         <section className="story-section" id="grove" aria-labelledby="grove-title">
-          <div className="story-panel">
+          <div className="story-panel story-panel--narrow glass-pane">
             <h2 id="grove-title">Grow what nourishes you. Outgrow what doesn't.</h2>
             <p>Two goals can grow side by side. To anyone else, they are simply trees in a quiet grove.</p>
-            <div className="grove-names">
-              <div><LeafIcon filled className="grove-leaf" /><strong>Sun Sprout</strong><span>A daily ritual</span></div>
-              <div><LeafIcon filled className="grove-leaf grove-leaf--other" /><strong>Iron Bark</strong><span>A fresh beginning</span></div>
-            </div>
-            <p className="small-copy">Only you know which is which.</p>
           </div>
         </section>
 
         <section className="story-section" aria-labelledby="days-title">
-          <div className="story-panel">
+          <div className="story-panel story-panel--wide glass-pane">
             <h2 id="days-title">Good days and hard days both count.</h2>
             <p>Mark a day done when you showed up for yourself. Skip the ones that went differently. A skip leaves a few fallen leaves, never a reset, so your tree keeps growing with you.</p>
           </div>
         </section>
 
-        <section className="story-section" id="privacy" aria-labelledby="privacy-title">
-          <div className="story-panel">
-            <h2 id="privacy-title">A protected garden, even in plain sight.</h2>
-            <p>Goals use codenames, so your grove can be peaceful to anyone glancing at your phone.</p>
-            <p>On Android, your trees and notes are encrypted and stored on your phone. An optional PIN or fingerprint lock keeps your garden yours.</p>
-          </div>
-        </section>
+        <TreePicker reduced={reduced} />
 
-        <section className="closing-section" id="early-testers" aria-labelledby="closing-title">
-          <div className="closing-panel">
-            <h2 id="closing-title">Give your days somewhere to grow.</h2>
-            <p>Build a ritual. Outgrow a vice. Let the tree keep the story.</p>
-            <div className="tester-availability">
-              <strong>Early testing is coming</strong>
-              <p>The invitation link isn't available yet. We'll put it here when the tester group opens.</p>
-            </div>
+        <section className="app-section app-section--solo" id="early-testers" aria-labelledby="app-title">
+          <div className="app-copy glass-pane">
+            <h2 id="app-title">Your grove, in your pocket.</h2>
+            <p>Check in with one tap, watch each tree grow, and keep the whole story private on your phone.</p>
+            <a className="play-badge" href={TESTER_GROUP_URL} target="_blank" rel="noopener">
+              <PlayLogo />
+              <span><small>Join early testers on</small>Google Play</span>
+            </a>
+            <p className="tester-note">Join with your Google account. When testing opens, you'll get the install link by email.</p>
           </div>
         </section>
+        {/* The camera's last stop: the whole grove, standing above the footer. */}
+        <section className="grove-end" aria-label="The whole grove" />
       </main>
-      <footer className="site-footer"><BrandMark /><p>A little more alive, one day at a time.</p><a href="#home">Back to the beginning</a></footer>
+      <footer className="site-footer">
+        <BrandMark />
+        <nav aria-label="Footer">
+          <a href="#trees">Trees</a><a href="#grove">The grove</a>
+          <a href={TESTER_GROUP_URL} target="_blank" rel="noopener">Google Play testers</a>
+        </nav>
+        <p>© {new Date().getFullYear()} Thrivling</p>
+      </footer>
+      <a className="to-top glass-pane" href="#home" aria-label="Back to top">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </a>
     </div>
   );
 }

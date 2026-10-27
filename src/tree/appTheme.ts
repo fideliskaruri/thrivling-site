@@ -40,15 +40,15 @@ export const themes: Record<SkyPhase, Theme> = {
     leaf: "#2F7D47", skip: "#7A4C0C", todo: "rgba(31,51,64,0.2)", line: "rgba(31,51,64,0.14)",
   },
   dusk: {
-    phase: "dusk", sky: ["#3B3A7A", "#7A4677", "#8A4E6E"], skyAt: [0, 0.6, 1],
-    ink: "#FBF5F2", soft: "rgba(251,245,242,0.9)", glass: "rgba(40,30,60,0.32)", panel: "#3A2D58",
-    hill: "#4F5F55", hill2: "#3F4E46", onInk: "#1C2B52", stars: false,
+    phase: "dusk", sky: ["#22305C", "#3F5585", "#D29676"], skyAt: [0, 0.6, 1],
+    ink: "#FBF5F2", soft: "rgba(251,245,242,0.9)", glass: "rgba(20,32,60,0.32)", panel: "#24345E",
+    hill: "#4E7350", hill2: "#3B5E40", onInk: "#1C2B52", stars: false,
     leaf: "#B5E39B", skip: "#FFD79A", todo: "rgba(251,245,242,0.24)", line: "rgba(251,245,242,0.16)",
   },
   night: {
-    phase: "night", sky: ["#1C2B52", "#2E4777", "#405A82"], skyAt: [0, 0.6, 1],
+    phase: "night", sky: ["#08122A", "#0F2142", "#1A3157"], skyAt: [0, 0.6, 1],
     ink: "#F1F4FB", soft: "rgba(241,244,251,0.9)", glass: "rgba(10,20,45,0.38)", panel: "#1B2A50",
-    hill: "#24384A", hill2: "#1C2E3E", onInk: "#1C2B52", stars: true,
+    hill: "#244236", hill2: "#1A3329", onInk: "#1C2B52", stars: true,
     leaf: "#A8DB8F", skip: "#F2B45A", todo: "rgba(241,244,251,0.22)", line: "rgba(241,244,251,0.14)",
   },
 };

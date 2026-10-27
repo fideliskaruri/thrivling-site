@@ -1,6 +1,6 @@
 // Placement of the app's tree picker stages (copied from apps/mobile/components/window/create/pickerImages.ts at launch 290a06f).
 // x, y, w, h are in a 768 px square laid out like the app picker; pw, ph are the image's own pixels.
-export interface StagePlace { file: string; x: number; y: number; w: number; h: number; pw: number; ph: number }
+export interface StagePlace { file: string; x: number; y: number; w: number; h: number; pw: number; ph: number; /** Soil mound: centre x, base y, radius, in picker-square units. */ soil?: [number, number, number] }
 export const PICKER_PX = 768;
 export const TREE_IMAGE_PADDING = 0.07;
 export const TREE_SIZE = 920;

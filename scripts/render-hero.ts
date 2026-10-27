@@ -14,11 +14,13 @@ const OUT = join(ROOT, "public", "assets", "hero");
 const MODULE = join(ROOT, "src", "scene", "heroStages.ts");
 const MIN_AGE = 3;
 const MAX_AGE = 90;
-const STAGE_COUNT = 120;
+const STAGE_COUNT = 200;
 const HEALTH = 100;
-const IMAGE_PX = 768;
-const FINAL_PX = 1536;
-const LAYERS = ["seed", "shadow", "backMass", "wood", "trunkDetail", "soil", "frontMass", "leaves", "details", "blossoms"] as const;
+const IMAGE_PX = 1280;
+const FINAL_PX = 2560;
+// No shadow: the site draws it live, so it grows smoothly instead of stepping between frames.
+// No shadow or soil either: the site draws both live, measured here per stage.
+const LAYERS = ["seed", "backMass", "wood", "trunkDetail", "frontMass", "leaves", "details", "blossoms"] as const;
 
 function paintedBounds(pixels: Uint8ClampedArray, size: number) {
   let x0 = size, y0 = size, x1 = -1, y1 = -1;
@@ -63,6 +65,13 @@ for (let stage = 0; stage < STAGE_COUNT; stage++) {
   const layout = tree.layout(linearTreeAge(targetAge), HEALTH, TREE_SIZE);
   const rig = tree.rig(layout);
   for (const layer of LAYERS) rig.paintPart(ctx as unknown as Pen, layer);
+  // The soil mound on its own, to measure it (centre, base line, radius) for the live drawing.
+  const soilCanvas = createCanvas(px, px);
+  const soilCtx = soilCanvas.getContext("2d");
+  soilCtx.translate(padding, padding);
+  soilCtx.scale((px - 2 * padding) / TREE_SIZE, (px - 2 * padding) / TREE_SIZE);
+  rig.paintPart(soilCtx as unknown as Pen, "soil");
+  const soil = paintedBounds(soilCtx.getImageData(0, 0, px, px).data, px);
 
   const { x, y, w, h } = paintedBounds(ctx.getImageData(0, 0, px, px).data, px);
   const cropped = createCanvas(w, h);
@@ -71,7 +80,8 @@ for (let stage = 0; stage < STAGE_COUNT; stage++) {
   const file = `cherry-${stage}.webp`;
   writeFileSync(join(OUT, file), data);
   totalBytes += data.length;
-  const scale = IMAGE_PX / px;
+  // Placements stay in the 768 px picker square the scene lays trees out in, whatever the image resolution.
+    const scale = 768 / px;
   placements.push({
     file,
     x: Number((x * scale).toFixed(3)),
@@ -80,6 +90,11 @@ for (let stage = 0; stage < STAGE_COUNT; stage++) {
     h: Number((h * scale).toFixed(3)),
     pw: w,
     ph: h,
+    soil: [
+      Number(((soil.x + soil.w / 2) * scale).toFixed(3)),
+      Number(((soil.y + soil.h) * scale).toFixed(3)),
+      Number((soil.w / 2 * scale).toFixed(3)),
+    ],
   });
 }
 

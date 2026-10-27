@@ -29,7 +29,7 @@ export function createAmbient(S: Species, pal: Palette): Ambient {
   const fall: Fall[] = [], life = createLife();
   const lifeScene: LifeScene = {
     W: 0, H: 0, s: 0, air: [0, 0, 0, 0], perches: [], flowers: [], ground: [[0, 0, 0]],
-    time: "day", lively: 1, max: { firefly: 6 }, habitats: [S.habitat], weather: "clear",
+    time: "day", lively: 1, max: { firefly: 6, ladybird: 0 }, habitats: [S.habitat], weather: "clear",
   };
   const interval = (rate: number) => -Math.log(1 - Math.random()) * 1000 / rate;
 

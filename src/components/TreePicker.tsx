@@ -6,6 +6,12 @@ const LABELS: Record<PickerSpecies, string> = {
   cherry: "Cherry", oak: "Oak", jacaranda: "Jacaranda", wisteria: "Wisteria",
   sakura: "Sakura", japaneseMaple: "Japanese maple", baobab: "Baobab", flame: "Flame tree",
 };
+/** One line on what makes each tree its own. */
+const LINES: Record<PickerSpecies, string> = {
+  cherry: "Pink blossom, then summer green.", oak: "Slow, broad and full of acorns.", jacaranda: "Purple in spring.",
+  wisteria: "Long violet curtains.", sakura: "Clouds of pale pink.", japaneseMaple: "Fine leaves that turn to flame.",
+  baobab: "A great trunk that stores the rain.", flame: "Red-orange crown in the dry season.",
+};
 /** The app picker's pace: the whole growth plays in this long each time a tree comes into view. */
 const GROW_MS = 1700;
 const GROUND = 690;
@@ -18,6 +24,7 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
   const section = useRef<HTMLElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [index, setIndex] = useState(0);
+  const arrived = useRef(false);
   const id = PICKER_SPECIES[index]!;
 
   // Start loading the first trees when the picker comes near.
@@ -42,6 +49,8 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
     if (!el || !g) return;
     let raf = 0;
     let disposed = false;
+    // The hero hands over already grown: show the first tree still; other trees grow when picked.
+    const still = reduced || (index === 0 && !arrived.current);
     const player = new StagePlayer(id, GROW_MS, () => schedule());
     function frame(now: number) {
       raf = 0;
@@ -60,7 +69,7 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
       for (const x of [110, 150, 205, 240, 265, 520, 560]) {
         for (const a of [-0.5, 0, 0.5]) { g.beginPath(); g.moveTo(x, GROUND); g.lineTo(x + a * 10, GROUND - 16 + Math.abs(a) * 5); g.stroke(); }
       }
-      const { i, blend, done } = player.at(now, reduced);
+      const { i, blend, done } = player.at(now, still);
       player.draw(g, i, blend);
       if (!done) raf = requestAnimationFrame(frame);
     }
@@ -69,9 +78,9 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
     observer.observe(el);
     schedule();
     return () => { disposed = true; cancelAnimationFrame(raf); observer.disconnect(); };
-  }, [id, reduced]);
+  }, [id, reduced, index]);
 
-  const go = (to: number) => setIndex(Math.min(PICKER_SPECIES.length - 1, Math.max(0, to)));
+  const go = (to: number) => { arrived.current = true; setIndex(Math.min(PICKER_SPECIES.length - 1, Math.max(0, to))); };
   const swipe = useRef<{ x: number; y: number } | null>(null);
 
 
@@ -79,8 +88,19 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
     <section ref={section} className="picker-section" id="trees" aria-labelledby="picker-title">
       <div className="picker-card glass-pane"
         onKeyDown={e => { if (e.key === "ArrowRight") go(index + 1); else if (e.key === "ArrowLeft") go(index - 1); }}>
+        <div className="picker-copy">
           <h2 id="picker-title">33 trees to grow.</h2>
           <p className="picker-lead">Every goal gets its own tree. Pick the one you want to watch grow.</p>
+          <p className="picker-name" aria-live="polite">{LABELS[id]}<span>{LINES[id]}</span></p>
+          <div className="picker-thumbs" role="tablist" aria-label="Trees">
+            {PICKER_SPECIES.map((s, i) => (
+              <button key={s} type="button" role="tab" aria-selected={i === index} aria-label={LABELS[s]}
+                className={i === index ? "is-active" : ""} onClick={() => go(i)}>
+                <img src={`${import.meta.env.BASE_URL}assets/picker/${s}-31.webp`} alt="" width="40" height="40" loading="lazy" />
+              </button>
+            ))}
+          </div>
+        </div>
           <div className="picker-stage"
             onPointerDown={e => { swipe.current = { x: e.clientX, y: e.clientY }; }}
             onPointerUp={e => {
@@ -94,14 +114,6 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
             <button type="button" className="picker-arrow picker-arrow--prev" aria-label="Previous tree" disabled={index === 0} onClick={() => go(index - 1)}>‹</button>
             <button type="button" className="picker-arrow picker-arrow--next" aria-label="Next tree" disabled={index === PICKER_SPECIES.length - 1} onClick={() => go(index + 1)}>›</button>
           </div>
-          <p className="picker-name" aria-live="polite">{LABELS[id]}</p>
-          <div className="picker-dots" role="tablist" aria-label="Trees">
-            {PICKER_SPECIES.map((s, i) => (
-              <button key={s} type="button" role="tab" aria-selected={i === index} aria-label={LABELS[s]}
-                className={i === index ? "is-active" : ""} onClick={() => go(i)} />
-            ))}
-          </div>
-          <p className="picker-note">Swipe or use the arrows. {PICKER_SPECIES.length} of the 33 are shown here.</p>
       </div>
     </section>
   );
