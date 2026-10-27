@@ -20,25 +20,13 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
   const [index, setIndex] = useState(0);
   const id = PICKER_SPECIES[index]!;
 
-  // Scroll position inside the pinned section picks the species.
+  // Start loading the first trees when the picker comes near.
   useEffect(() => {
     const el = section.current;
     if (!el) return;
-    const onScroll = () => {
-      const r = el.getBoundingClientRect();
-      const travel = Math.max(1, r.height - window.innerHeight);
-      const p = Math.min(0.999, Math.max(0, -r.top / travel));
-      setIndex(Math.floor(p * PICKER_SPECIES.length));
-      // While the picker is pinned, the hero tree steps back behind it; it comes forward again after.
-      const vh = window.innerHeight;
-      const enter = Math.min(1, Math.max(0, (vh - r.top) / vh));
-      const leave = Math.min(1, Math.max(0, r.bottom / vh));
-      document.documentElement.style.setProperty("--picker-focus", Math.min(enter, leave).toFixed(3));
-      if (r.top < window.innerHeight * 1.2) preloadSpecies(PICKER_SPECIES[0]);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const io = new IntersectionObserver(([e]) => { if (e?.isIntersecting) preloadSpecies(PICKER_SPECIES[0]); }, { rootMargin: "100% 0px" });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
   // Neighbours load ahead, like the app, so swiping never waits.
@@ -83,22 +71,25 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
     return () => { disposed = true; cancelAnimationFrame(raf); observer.disconnect(); };
   }, [id, reduced]);
 
-  const go = (to: number) => {
-    const el = section.current;
-    if (!el) return;
-    const travel = el.offsetHeight - window.innerHeight;
-    const top = el.getBoundingClientRect().top + window.scrollY;
-    window.scrollTo({ top: top + ((to + 0.5) / PICKER_SPECIES.length) * travel, behavior: reduced ? "auto" : "smooth" });
-  };
+  const go = (to: number) => setIndex(Math.min(PICKER_SPECIES.length - 1, Math.max(0, to)));
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+
 
   return (
-    <section ref={section} className="picker-section" id="trees" aria-labelledby="picker-title"
-      style={{ height: `${100 + PICKER_SPECIES.length * 45}svh` }}>
-      <div className="picker-pin">
-        <div className="picker-card glass-pane">
-          <p className="picker-eyebrow">Pick a tree</p>
-          <h2 id="picker-title">Every goal grows its own tree.</h2>
-          <div className="picker-stage">
+    <section ref={section} className="picker-section" id="trees" aria-labelledby="picker-title">
+      <div className="picker-card glass-pane"
+        onKeyDown={e => { if (e.key === "ArrowRight") go(index + 1); else if (e.key === "ArrowLeft") go(index - 1); }}>
+          <h2 id="picker-title">33 trees to grow.</h2>
+          <p className="picker-lead">Every goal gets its own tree. Pick the one you want to watch grow.</p>
+          <div className="picker-stage"
+            onPointerDown={e => { swipe.current = { x: e.clientX, y: e.clientY }; }}
+            onPointerUp={e => {
+              const s = swipe.current; swipe.current = null;
+              if (!s) return;
+              const dx = e.clientX - s.x, dy = e.clientY - s.y;
+              if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) go(index + (dx < 0 ? 1 : -1));
+            }}
+            onPointerCancel={() => { swipe.current = null; }}>
             <canvas ref={canvas} className="picker-canvas" role="img" aria-label={`${LABELS[id]}, growing from a sapling to a full tree`} />
             <button type="button" className="picker-arrow picker-arrow--prev" aria-label="Previous tree" disabled={index === 0} onClick={() => go(index - 1)}>‹</button>
             <button type="button" className="picker-arrow picker-arrow--next" aria-label="Next tree" disabled={index === PICKER_SPECIES.length - 1} onClick={() => go(index + 1)}>›</button>
@@ -110,8 +101,7 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
                 className={i === index ? "is-active" : ""} onClick={() => go(i)} />
             ))}
           </div>
-          <p className="picker-note">{PICKER_SPECIES.length} of the app's 33 trees. Keep scrolling to see the next.</p>
-        </div>
+          <p className="picker-note">Swipe or use the arrows. {PICKER_SPECIES.length} of the 33 are shown here.</p>
       </div>
     </section>
   );

@@ -2,6 +2,8 @@ import { createLife, createTree, type Layout, type LifeTime } from "../tree";
 import type { Pen } from "../tree/pen";
 import { PICKER_GROWTH, PICKER_PX, PICKER_SEED, STAGES, TREE_IMAGE_PADDING, TREE_SIZE, type StagePlace } from "./stages";
 import { drawPlace, stageImage, StagePlayer } from "./stagePlayer";
+import { HERO_STAGES } from "./heroStages";
+import { groundTop, paintGround } from "./ground";
 
 /**
  * The hero plays the app's tree picker: the same pre-rendered growth stages, crossfading in order on one 2D canvas,
@@ -13,8 +15,8 @@ export interface SceneController { update(options: SceneOptions): void; dispose(
 
 const HERO = "cherry";
 const COMPANIONS = ["jacaranda", "oak", "wisteria"] as const;
-/** Same pace as the app picker per stage, a little longer overall so the hero can be watched. */
-const GROW_MS = 2400;
+/** 120 rendered stages over six seconds: slow enough to watch, with no visible stepping. */
+const GROW_MS = 6000;
 /** Where the ground meets the trunk in the picker square. */
 const GROUND = 690;
 
@@ -42,7 +44,7 @@ export function createScene(
   const player = new StagePlayer(HERO, GROW_MS, () => {
     if (!ready && player.loadedFirst) { ready = true; onReady(); }
     schedule();
-  });
+  }, "hero", HERO_STAGES);
   const companions: { place: StagePlace; img: HTMLImageElement }[] = [];
   let companionsLoading = false;
 
@@ -60,9 +62,22 @@ export function createScene(
     }
   }
 
+  // Room the hero tree may grow into: below the nav, and below the copy when the copy sits above the tree.
+  let navBottom = 0, copyBottom = 0, copyRight = 0;
+  function measure() {
+    navBottom = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
+    const copy = document.querySelector(".hero-copy");
+    if (copy) {
+      const r = copy.getBoundingClientRect();
+      copyBottom = r.bottom + window.scrollY;
+      copyRight = r.right;
+    }
+  }
+
   function resize() {
     const w = canvas.clientWidth, h = canvas.clientHeight, d = Math.min(window.devicePixelRatio || 1, 2);
     if (w === width && h === height && d === dpr) return;
+    measure();
     width = w; height = h; dpr = d;
     canvas.width = Math.round(w * d);
     canvas.height = Math.round(h * d);
@@ -88,10 +103,19 @@ export function createScene(
     g.clearRect(0, 0, width, height);
 
     // Hero placement: big and grounded on the hill, then smaller and to the side as the grove opens up.
-    const S0 = mobile ? Math.min(width * 1.18, height * 0.66) : Math.min(width * 0.62, height * 1.02);
+    // Big, but the crown (about 0.71 of the square above the ground) never covers the nav or the copy.
+    const crown = 0.71;
+    const stacked = mobile || copyRight > width * 0.62;
+    const roof = stacked ? Math.max(navBottom, copyBottom) + 14 : navBottom + 10;
+    const groundGuess = height * (mobile ? 0.9 : 0.93);
+    const S0 = Math.max(width * 0.5 * (mobile ? 1 : 0.5),
+      Math.min(mobile ? width * 1.35 : width * 0.7, (groundGuess - roof) / crown));
     const S = S0 * (1 - scroll * (mobile ? 0.38 : 0.42));
-    const groundY = height * (mobile ? 0.9 : 0.93) + scroll * height * 0.02;
+    const horizon = height * (mobile ? 0.9 : 0.93);
     const cx = mobile ? width * (0.5 - scroll * 0.14) : width * (0.72 - scroll * 0.42);
+    // The app grove's painted ground, cached; the trunk sits on its crest.
+    paintGround(g, width, height, horizon, settings.time, 7, [{ x: cx, r: S * 0.22 }]);
+    const groundY = groundTop(width, height, horizon, cx) + S * 0.01;
     const k = S / PICKER_PX;
     const ox = cx - (PICKER_PX / 2) * k;
     const oy = groundY - GROUND * k;
@@ -106,7 +130,8 @@ export function createScene(
         const s = S0 * fs! * (0.85 + 0.15 * join);
         const kk = s / PICKER_PX;
         g.save();
-        g.translate(width * fx! - (PICKER_PX / 2) * kk, groundY - height * 0.03 * i - GROUND * kk);
+        const tx = width * fx!;
+        g.translate(tx - (PICKER_PX / 2) * kk, groundTop(width, height, horizon, tx) + s * 0.01 - GROUND * kk);
         g.scale(kk, kk);
         drawStage(place, img, join);
         g.restore();
@@ -114,19 +139,12 @@ export function createScene(
     }
 
     const { i, blend, done: grown } = player.at(now, settings.reduced);
-    const day = Math.round((PICKER_GROWTH[i]! / 100) * 90);
+    const day = Math.round((i / Math.max(1, player.places.length - 1)) * 90);
     if (day !== lastDay) { lastDay = day; onDay(day); }
 
     g.save();
     g.translate(ox, oy);
     g.scale(k, k);
-    // The grown tree sways gently from its base, like the app's resting tree.
-    if (grown && !settings.reduced) {
-      const sway = Math.sin(clock * 0.9) * 0.012 + Math.sin(clock * 2.1) * 0.004;
-      g.translate(PICKER_PX / 2, GROUND);
-      g.transform(1, 0, sway, 1, 0, 0);
-      g.translate(-PICKER_PX / 2, -GROUND);
-    }
     player.draw(g, i, blend);
     g.restore();
 
@@ -164,7 +182,7 @@ export function createScene(
     if (!disposed && !raf && !document.hidden) raf = requestAnimationFrame(frame);
   }
   const visibility = () => { last = 0; schedule(); };
-  const observer = new ResizeObserver(schedule);
+  const observer = new ResizeObserver(() => { width = 0; schedule(); });
   observer.observe(canvas);
   window.addEventListener("scroll", schedule, { passive: true });
   document.addEventListener("visibilitychange", visibility);

@@ -31,7 +31,6 @@ export default function App() {
   const [paused, setPaused] = useState(false);
   const [replay, setReplay] = useState(0);
   const [day, setDay] = useState(0);
-  const [mark, setMark] = useState<"done" | "skip" | null>(null);
   const style = {
     "--sky-top": theme.sky[0], "--sky-mid": theme.sky[1], "--sky-bottom": theme.sky[2],
     "--ink": theme.ink, "--soft": theme.soft, "--glass": theme.glass, "--panel": theme.panel,
@@ -92,7 +91,7 @@ export default function App() {
         <TreePicker reduced={reduced} />
 
         <section className="story-section" id="grove" aria-labelledby="grove-title">
-          <div className="story-panel glass-pane">
+          <div className="story-panel">
             <h2 id="grove-title">Grow what nourishes you. Outgrow what doesn't.</h2>
             <p>Two goals can grow side by side. To anyone else, they are simply trees in a quiet grove.</p>
             <div className="grove-names">
@@ -104,21 +103,14 @@ export default function App() {
         </section>
 
         <section className="story-section" aria-labelledby="days-title">
-          <div className="story-panel glass-pane">
-            <h2 id="days-title">Every kind of day belongs.</h2>
-            <p>Done marks a day that supports your goal. Skip records a day that went differently. Your tree keeps the whole story either way.</p>
-            <div className="daily-demo">
-              <div className="demo-actions" role="group" aria-label="Try a daily check-in">
-                <button type="button" className={`action-button ${mark === "skip" ? "is-skip" : ""}`} aria-pressed={mark === "skip"} onClick={() => setMark("skip")}><LeafIcon fallen filled={mark === "skip"} /> Skip</button>
-                <button type="button" className={`action-button action-button--primary ${mark === "done" ? "is-done" : ""}`} aria-pressed={mark === "done"} onClick={() => setMark("done")}><LeafIcon filled /> Done</button>
-              </div>
-              <p className="demo-message" aria-live="polite">{mark === "done" ? "Done today. Your tree grew a little." : mark === "skip" ? "Skipped today. A few leaves fall. Your tree keeps its size." : "Try a check-in. Nothing here is saved."}</p>
-            </div>
+          <div className="story-panel">
+            <h2 id="days-title">Good days and hard days both count.</h2>
+            <p>Mark a day done when you showed up for yourself. Skip the ones that went differently. A skip leaves a few fallen leaves, never a reset, so your tree keeps growing with you.</p>
           </div>
         </section>
 
         <section className="story-section" id="privacy" aria-labelledby="privacy-title">
-          <div className="story-panel glass-pane">
+          <div className="story-panel">
             <h2 id="privacy-title">A protected garden, even in plain sight.</h2>
             <p>Goals use codenames, so your grove can be peaceful to anyone glancing at your phone.</p>
             <p>On Android, your trees and notes are encrypted and stored on your phone. An optional PIN or fingerprint lock keeps your garden yours.</p>
@@ -126,7 +118,7 @@ export default function App() {
         </section>
 
         <section className="closing-section" id="early-testers" aria-labelledby="closing-title">
-          <div className="closing-panel glass-pane">
+          <div className="closing-panel">
             <h2 id="closing-title">Give your days somewhere to grow.</h2>
             <p>Build a ritual. Outgrow a vice. Let the tree keep the story.</p>
             <div className="tester-availability">

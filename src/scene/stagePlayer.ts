@@ -1,18 +1,18 @@
 import { STAGES, type PickerSpecies, type StagePlace } from "./stages";
 
-const base = `${import.meta.env.BASE_URL}assets/picker/`;
 const cache = new Map<string, Promise<HTMLImageElement>>();
 
 /** Fetches and decodes one stage image once; later calls share the same promise. */
-export function stageImage(place: StagePlace): Promise<HTMLImageElement> {
-  let p = cache.get(place.file);
+export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImageElement> {
+  const key = `${dir}/${place.file}`;
+  let p = cache.get(key);
   if (!p) {
     const img = new Image();
     img.decoding = "async";
-    img.src = base + place.file;
+    img.src = `${import.meta.env.BASE_URL}assets/${key}`;
     p = img.decode().then(() => img);
-    p.catch(() => cache.delete(place.file));
-    cache.set(place.file, p);
+    p.catch(() => cache.delete(key));
+    cache.set(key, p);
   }
   return p;
 }
@@ -32,11 +32,17 @@ export class StagePlayer {
   private start = -1;
   private held = 0;
 
-  constructor(readonly id: PickerSpecies, private growMs: number, onImage: () => void) {
-    this.places = STAGES[id];
+  constructor(
+    readonly id: PickerSpecies,
+    private growMs: number,
+    onImage: () => void,
+    private dir = "picker",
+    places: StagePlace[] = STAGES[id],
+  ) {
+    this.places = places;
     this.images = new Array(this.places.length);
     this.places.forEach((place, i) => {
-      void stageImage(place).then(img => { this.images[i] = img; onImage(); }).catch(() => {});
+      void stageImage(place, this.dir).then(img => { this.images[i] = img; onImage(); }).catch(() => {});
     });
   }
 

@@ -231,7 +231,7 @@ export function createLife(): Life {
         const f = 0.25 + 0.75 * Math.abs(Math.sin(t * (c.resting ? 0.004 : 0.03) + c.ph));
         const bob = c.resting ? 0 : Math.sin(t * 0.006 + c.ph) * s * 0.9;
         const cols = c.kind === "moth" ? ["#E4E1D7", "#BEBCC5"] as const : c.cols;
-        butterfly(ctx, x + Math.sin(t * 0.005 + c.ph) * s * (c.resting ? 0 : 0.9), y + bob - (c.resting ? s * 0.6 : 0), s * (c.kind === "moth" ? 0.72 : 1), f, cols, 0.2 * Math.sin(t * 0.004 + c.ph));
+        butterfly(ctx, x + Math.sin(t * 0.005 + c.ph) * s * (c.resting ? 0 : 0.9), y + bob - (c.resting ? s * 0.6 : 0), s * (c.kind === "moth" ? 0.72 : 1), f, cols, 0.2 * Math.sin(t * 0.004 + c.ph), c.kind === "moth");
       } else if (c.kind === "bee") {
         bee(ctx, x + Math.sin(t * 0.013 + c.ph) * s * 0.5, y - s * 0.8 + Math.sin(t * 0.017) * s * 0.4, s * 0.75, t, c.dir);
       } else if (c.kind === "dragonfly") {
