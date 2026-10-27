@@ -59,7 +59,8 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
       if (el.width !== Math.round(w * d)) { el.width = Math.round(w * d); el.height = Math.round(h * d); }
       g.setTransform(d, 0, 0, d, 0, 0);
       g.clearRect(0, 0, w, h);
-      const k = Math.min(w, h * 1.08) / PICKER_PX;
+      // The grown crown fills about three quarters of the picker square, so scale up until it nearly fills the stage.
+      const k = Math.min(w * (w < 500 ? 1.02 : 1.15), h * 1.25) / PICKER_PX;
       g.translate(w / 2 - (PICKER_PX / 2) * k, h * 0.96 - GROUND * k);
       g.scale(k, k);
       // The picker's still ground: a soft shadow and a few tufts of grass.
@@ -89,7 +90,7 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
       <div className="picker-card glass-pane"
         onKeyDown={e => { if (e.key === "ArrowRight") go(index + 1); else if (e.key === "ArrowLeft") go(index - 1); }}>
         <div className="picker-copy">
-          <h2 id="picker-title">33 trees to grow.</h2>
+          <h2 id="picker-title">You pick your style.</h2>
           <p className="picker-lead">Every goal gets its own tree. Pick the one you want to watch grow.</p>
           <p className="picker-name" aria-live="polite">{LABELS[id]}<span>{LINES[id]}</span></p>
           <div className="picker-thumbs" role="tablist" aria-label="Trees">

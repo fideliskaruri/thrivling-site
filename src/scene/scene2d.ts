@@ -232,7 +232,7 @@ export function createScene(
     if (!settings.reduced) {
       const bug = heroWide * 0.024;
       if (!walkers.length) {
-        const kinds: WalkerKind[] = ["ladybird", "ladybird", "ladybird", "beetle"];
+        const kinds: WalkerKind[] = ["ladybird", "beetle"];
         walkers = kinds.map((kind, n) => ({
           kind, x: hx + width * (n - 2) * 0.09, dir: n % 2 ? 1 : -1,
           speed: bug * (0.5 + Math.random() * 0.4), rest: Math.random() * 2,
@@ -262,7 +262,8 @@ export function createScene(
     if (shown > 0.45) crown(ox + hp.x * k, oy + hp.y * k, hp.w * k, hp.h * k);
     if (!settings.reduced && perches.length) {
       treeLife.step(g as unknown as Pen, {
-        W: width, H: height, s: heroWide * (mobile ? 0.07 : 0.05),
+        // Same on-screen size as the sky's visitors, whatever the camera zoom.
+        W: width, H: height, s: Math.max(10, width * (mobile ? 0.032 : 0.015)) / zoom,
         air: [-width * 0.2, hy - heroWide * 0.9, width * 1.2, hy - heroWide * 0.15],
         perches, flowers, ground: [],
         time: settings.time, lively: 1,
