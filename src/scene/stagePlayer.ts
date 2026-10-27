@@ -103,6 +103,19 @@ export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImage
   return p;
 }
 
+/**
+ * Keeps decoded growth frames only for the given picker species (the current one and its neighbours), so browsing
+ * every tree does not hold all their frames in memory. The grown frame of each species stays for the grove, and the
+ * files stay downloaded, so a released tree decodes again instantly.
+ */
+export function keepDecoded(ids: readonly PickerSpecies[]) {
+  for (const id of Object.keys(STAGES) as PickerSpecies[]) {
+    if (ids.includes(id)) continue;
+    const stages = STAGES[id];
+    stages.forEach((place, n) => { if (n < stages.length - 1) decoded.delete(`picker/${place.file}`); });
+  }
+}
+
 /** Decodes a species' stages from the downloaded files, ready to play. */
 export function preloadSpecies(id: PickerSpecies) {
   STAGES[id].forEach(place => void stageImage(place).catch(() => {}));
@@ -135,6 +148,12 @@ export class StagePlayer {
       void p.then(img => { if (img) this.images[i] = img; }, () => {})
         .finally(() => { this.settled++; onImage(); });
     });
+  }
+
+  /** Frees decoded frames (ImageBitmaps hold memory until closed). */
+  dispose() {
+    for (const f of this.images) if (f && "close" in f && typeof f.close === "function") f.close();
+    this.images = [];
   }
 
   restart() { this.start = -1; this.held = 0; }

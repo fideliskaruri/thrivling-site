@@ -7,13 +7,15 @@ const isChoice = (value: string | null): value is SkyChoice =>
   value === "auto" || value === "dawn" || value === "day" || value === "dusk" || value === "night";
 
 export function useSky() {
-  const [choice, setChoice] = useState<SkyChoice>("auto");
+  // Read the saved sky before the first render, so the scene never starts in the wrong light.
+  const [choice, setChoice] = useState<SkyChoice>(() => {
+    try { const saved = localStorage.getItem(KEY); return isChoice(saved) ? saved : "auto"; } catch { return "auto"; }
+  });
   const [clock, setClock] = useState(() => phaseAt(new Date().getHours()));
   const [notice, setNotice] = useState("");
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(KEY);
-      if (isChoice(saved)) setChoice(saved);
+      localStorage.getItem(KEY);
     } catch (error) {
       console.warn("Sky preference storage is unavailable", error);
       setNotice("Your browser cannot save the sky preference. You can still change it for this visit.");

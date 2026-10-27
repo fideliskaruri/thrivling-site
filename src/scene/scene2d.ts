@@ -1,6 +1,6 @@
 import { createLife, createTree, type Layout, type LifeTime } from "../tree";
 import type { Pen } from "../tree/pen";
-import { beetle, ladybird } from "../tree/critters";
+import { ladybirdWalk } from "../tree/critters";
 import { PICKER_PX, PICKER_SEED, PICKER_SPECIES, STAGES, TREE_IMAGE_PADDING, TREE_SIZE, type StagePlace } from "./stages";
 import { drawPlace, fetchFile, loadFrame, stageImage, StagePlayer } from "./stagePlayer";
 import { HERO_STAGES } from "./heroStages";
@@ -20,14 +20,19 @@ const HERO = "cherry";
 const GROUND = 690;
 type GroveId = keyof typeof STAGES;
 /** The grove in the wide shot: x as a fraction of the width, size relative to the hero, and which hill it stands on. */
-interface Spot { id: GroveId; x: number; s: number; layer: GroundLayer }
+/**
+ * `depth` puts a tree nearer the camera than the hero (negative = closer, in camera-distance units of the wide shot):
+ * it then follows real perspective, so while the camera is close to the hero at the top it is beside the camera and out
+ * of frame, and it walks into view as the camera pulls back. `drop` lowers its footing (nearer ground sits lower).
+ */
+interface Spot { id: GroveId; x: number; s: number; layer: GroundLayer; depth?: number; drop?: number }
 // Wide screens: the hero stands right of centre so, in the close shot at the top, the left (where the headline is)
 // shows only meadow; the left trees come into view as the camera pulls back.
 const HERO_X_WIDE = 0.6;
 const GROVE_WIDE: Spot[] = [
   { id: "flame", x: 0.02, s: 0.6, layer: 1 }, { id: "wisteria", x: 0.12, s: 0.64, layer: 1 },
   { id: "sakura", x: 0.79, s: 0.64, layer: 1 }, { id: "japaneseMaple", x: 0.93, s: 0.6, layer: 1 },
-  { id: "oak", x: 0.1, s: 0.95, layer: 2 }, { id: "jacaranda", x: 0.86, s: 0.92, layer: 2 },
+  { id: "oak", x: 0.455, s: 0.44, layer: 2, depth: -0.4, drop: 0.035 }, { id: "jacaranda", x: 0.86, s: 0.92, layer: 2 },
 ];
 const GROVE_NARROW: Spot[] = [
   { id: "wisteria", x: 0.2, s: 0.62, layer: 1 }, { id: "sakura", x: 0.8, s: 0.62, layer: 1 },
@@ -56,8 +61,8 @@ const atStage = (list: number[], progress: number) => {
   return lerp(list[i]!, list[Math.min(i + 1, list.length - 1)]!, f - i);
 };
 
-type WalkerKind = "ladybird" | "beetle";
-interface Walker { kind: WalkerKind; x: number; dir: number; speed: number; rest: number }
+/** A ladybird on the ground: it eases into and out of walking, pauses to feel around, and turns round slowly. */
+interface Walker { x: number; dir: number; face: number; v: number; top: number; rest: number; walk: number; phase: number; feel: number }
 
 export function createScene(
   canvas: HTMLCanvasElement,
@@ -77,6 +82,11 @@ export function createScene(
   let shown = 0;
   let pull = 0;
   let navBottom = 0;
+  let maxScroll = 1;
+  // Bottom of the hero copy in page units, so the counter never sits over the headline, button or scroll hint.
+  let copyBottom = 0;
+  const counter = document.querySelector<HTMLElement>(".tree-counter");
+  let counterX = "", counterY = "";
 
   // Phones keep every second frame and every device decodes frames at the size they are drawn, so all of them fit
   // in memory; the loader waits for the full set before the page shows.
@@ -106,10 +116,17 @@ export function createScene(
   }
 
   const model = createTree(PICKER_SEED, HERO);
-  const layout: Layout = model.layout(treeAge(1), 100, TREE_SIZE);
+  // The hero's falling leaves come from its layout at the current growth (in 5% steps), so they match its leaves.
+  const heroLayouts = new Map<number, Layout>();
+  const heroLayout = (progress: number) => {
+    const q = Math.round(clamp01(progress) * 20);
+    let lay = heroLayouts.get(q);
+    if (!lay) { lay = model.layout(treeAge(q / 20), 100, TREE_SIZE); heroLayouts.set(q, lay); }
+    return lay;
+  };
   const ambient = model.createAmbient();
   const sky = createLife();
-  // Birds, bees and butterflies that visit the trees live in the world, so they stay on their branch as the camera moves.
+  // Bees and butterflies that visit the trees live in the world, so they stay on their branch as the camera moves.
   const treeLife = createLife();
   const groveAmbient = new Map<GroveId, { layout: Layout; ambient: ReturnType<ReturnType<typeof createTree>["createAmbient"]> }>();
   for (const id of new Set([...GROVE_WIDE, ...GROVE_NARROW].map(s => s.id))) {
@@ -126,7 +143,43 @@ export function createScene(
     canvas.height = Math.round(h * d);
     navBottom = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
     walkers = [];
+    layerCache.length = 0;
   }
+  // Page height changes rarely (resize, fonts); measuring it every frame forced a layout per frame.
+  const measurePage = () => {
+    maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    const copy = document.querySelector(".hero-copy")?.getBoundingClientRect();
+    copyBottom = copy && window.innerWidth < 768 ? copy.bottom + window.scrollY : 0;
+  };
+  measurePage();
+  const pageObserver = new ResizeObserver(() => { measurePage(); schedule(); });
+  pageObserver.observe(document.body);
+
+  // The hills and the grass are hundreds of paths; each layer is painted once into a bitmap around the view and reused
+  // until the camera zooms more than a few percent or pans past its margin, so a frame costs a few image draws.
+  interface LayerBitmap { world: object; layer: GroundLayer; z: number; x0: number; y0: number; x1: number; y1: number; c: HTMLCanvasElement }
+  const layerCache: LayerBitmap[] = [];
+  function drawLayer(world: ReturnType<typeof worldGround>, layer: GroundLayer, z: number, ox: number, oy: number) {
+    const vx0 = -ox / z, vy0 = -oy / z, vx1 = (width - ox) / z, vy1 = (height - oy) / z;
+    let hit = layerCache.find(b => b.layer === layer && b.world === world && Math.abs(Math.log(b.z / z)) < 0.045
+      && b.x0 <= vx0 && b.y0 <= vy0 && b.x1 >= vx1 && b.y1 >= vy1);
+    if (!hit) {
+      const mx = (vx1 - vx0) * 0.2, my = (vy1 - vy0) * 0.2;
+      const x0 = vx0 - mx, y0 = vy0 - my, x1 = vx1 + mx, y1 = vy1 + my;
+      const scale = z * Math.min(dpr, 1.5);
+      const c = document.createElement("canvas");
+      c.width = Math.ceil((x1 - x0) * scale); c.height = Math.ceil((y1 - y0) * scale);
+      const lg = c.getContext("2d")!;
+      lg.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+      world.hill(lg, layer);
+      if (layer === 2) world.details(lg);
+      const old = layerCache.findIndex(b => b.layer === layer);
+      hit = { world, layer, z, x0, y0, x1, y1, c };
+      if (old >= 0) layerCache[old] = hit; else layerCache.push(hit);
+    }
+    g.drawImage(hit.c, hit.x0, hit.y0, hit.x1 - hit.x0, hit.y1 - hit.y0);
+  }
+
 
   function frame(now: number) {
     raf = 0;
@@ -138,7 +191,6 @@ export function createScene(
     clock += step;
     const mobile = width < 768;
     const y = window.scrollY;
-    const maxScroll = Math.max(1, document.documentElement.scrollHeight - height);
 
     // Growth: the tree grows from the top of the page until the tree picker comes up.
     const pick = document.querySelector<HTMLElement>(".picker-card");
@@ -164,16 +216,20 @@ export function createScene(
     const topX = mobile ? width * 0.5 : width * 0.72;
 
     // Camera: close while the tree grows, pulling back and panning over the rest of the page.
-    const pullTarget = settings.reduced ? 1 : smooth(clamp01((y - growEnd * 0.45) / Math.max(1, maxScroll - growEnd * 0.45)));
-    pull = dt ? pull + (pullTarget - pull) * Math.min(1, dt * 10) : pullTarget;
+    // With reduced motion the tree is fully grown but the camera still follows the reader's own scrolling.
+    const pullTarget = smooth(clamp01((y - growEnd * 0.45) / Math.max(1, maxScroll - growEnd * 0.45)));
+    pull = dt && !settings.reduced ? pull + (pullTarget - pull) * Math.min(1, dt * 10) : pullTarget;
     // The last shot stays close too: the grove fills the screen with the hero just right of centre and the ground low.
-    const zoomEnd = mobile ? 1.25 : 1.35;
+    const zoomEnd = mobile ? 1.6 : 1.35;
     const zoom = Math.exp(Math.log(zoomTop) * (1 - pull) + Math.log(zoomEnd) * pull);
-    const sx = lerp(topX, width * (mobile ? 0.5 : 0.56), pull), sy = lerp(topGround, height * (mobile ? 0.8 : 0.83), pull);
+    const sx = lerp(topX, width * (mobile ? 0.5 : 0.56), pull), sy = lerp(topGround, height * (mobile ? 0.72 : 0.83), pull);
     const camera = (layer: GroundLayer) => {
       const z = 1 + (zoom - 1) * PARALLAX[layer];
       g.setTransform(dpr * z, 0, 0, dpr * z, dpr * (sx - hx * z), dpr * (sy - hy * z));
+      return z;
     };
+    // Focus on the tree picker: the hero steps back (fainter) and the world dims while its card is centred.
+    const focus = pr ? smooth(clamp01(1 - Math.abs(pr.top + pr.height / 2 - height / 2) / (height * 0.7))) : 0;
 
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, width, height);
@@ -189,19 +245,25 @@ export function createScene(
       amb.ambient.step(g as unknown as Pen, amb.layout, clock * 1000, step, { time: settings.time, view: [-TREE_SIZE, TREE_SIZE * 2] });
       g.restore();
     };
-    // Branch tips and blossoms for the visiting birds, bees and butterflies (world units, near-ground trees only).
+    // Branch tips and blossoms for the visiting bees and butterflies (world units, near-ground trees only).
     const perches: [number, number][] = [], flowers: [number, number][] = [];
     const crown = (x: number, y: number, w: number, h: number) => {
+      // Resting spots sit inside the leafy crown (never on its outline), so a visitor that settles is on the foliage.
       for (let n = 0; n < 7; n++) {
-        const a = Math.PI * (0.12 + 0.76 * n / 6);
-        perches.push([x + w / 2 - Math.cos(a) * w * 0.42, y + h * 0.3 - Math.sin(a) * h * 0.26]);
+        const a = Math.PI * (0.15 + 0.7 * n / 6);
+        perches.push([x + w / 2 - Math.cos(a) * w * 0.24, y + h * 0.36 - Math.sin(a) * h * 0.16]);
         flowers.push([x + w * (0.2 + 0.6 * ((n * 0.37) % 1)), y + h * (0.18 + 0.32 * ((n * 0.61) % 1))]);
       }
     };
     const drawTree = (spot: Spot) => {
       const t = grove.get(spot.id);
       if (!t) return;
-      const s = heroWide * spot.s, k = s / PICKER_PX, tx = width * spot.x, ty = world.top(spot.layer, tx) + s * 0.012;
+      if (spot.depth !== undefined) {
+        const zo = 1 / Math.max(0.02, 1 / zoom + spot.depth);
+        g.setTransform(dpr * zo, 0, 0, dpr * zo, dpr * (sx - hx * zo), dpr * (sy - hy * zo));
+      }
+      const s = heroWide * spot.s, k = s / PICKER_PX, tx = width * spot.x;
+      const ty = (spot.depth !== undefined ? hy + height * (spot.drop ?? 0) : world.top(spot.layer, tx)) + s * 0.012;
       const ox = tx - (PICKER_PX / 2) * k, oy = ty - GROUND * k;
       shadow(tx, ty, s * 0.3);
       g.save();
@@ -225,25 +287,31 @@ export function createScene(
     };
 
     // Far and mid hills, the back row of the grove on the mid hill, then the near ground and its grass.
-    camera(0); world.hill(g, 0);
-    camera(1); world.hill(g, 1);
-    for (const spot of spots) if (spot.layer === 1) drawTree(spot);
-    camera(2); world.hill(g, 2); world.details(g);
-    for (const spot of spots) if (spot.layer === 2) drawTree(spot);
+    for (const layer of [0, 1, 2] as const) {
+      const z = camera(layer);
+      drawLayer(world, layer, z, sx - hx * z, sy - hy * z);
+      if (layer === 1) for (const spot of spots) if (spot.layer === 1) drawTree(spot);
+    }
+    for (const spot of spots) if (spot.layer === 2 && spot.depth === undefined) drawTree(spot);
 
     // The hero: a live shadow and soil mound that grow smoothly with it, then the tree frames.
     const k = heroWide / PICKER_PX;
     const ox = hx - (PICKER_PX / 2) * k, oy = hy + heroWide * 0.012 - GROUND * k;
+    const heroAlpha = 1 - 0.7 * focus;
+    g.globalAlpha = heroAlpha;
     shadow(hx, hy + heroWide * 0.012, Math.max(heroWide * 0.06, atStage(crownW, shown) * k * 0.55));
+    g.globalAlpha = 1;
     const { i, blend } = player.atProgress(shown);
     g.save();
     g.translate(ox, oy);
     g.scale(k, k);
-    player.draw(g, i, blend);
+    player.draw(g, i, blend, heroAlpha);
     const rx = atStage(soilR, shown);
     if (rx > 0) {
+      g.globalAlpha = heroAlpha;
       g.fillStyle = "#D6C4A6";
       g.beginPath(); g.ellipse(soilX, soilBase, rx, rx * 0.18 / 0.98, 0, Math.PI, 2 * Math.PI); g.fill();
+      g.globalAlpha = 1;
     }
     g.restore();
 
@@ -251,38 +319,50 @@ export function createScene(
     if (!settings.reduced) {
       const bug = heroWide * 0.024;
       if (!walkers.length) {
-        const kinds: WalkerKind[] = ["ladybird", "beetle"];
-        walkers = kinds.map((kind, n) => ({
-          kind, x: hx + width * (n - 2) * 0.09, dir: n % 2 ? 1 : -1,
-          speed: bug * (0.5 + Math.random() * 0.4), rest: Math.random() * 2,
-        }));
+        walkers = [{ x: hx - width * 0.12, dir: 1, face: 1, v: 0, top: bug * 0.55, rest: 0.8, walk: 0, phase: 0, feel: 0 }];
       }
       const xMin = hx - width * 0.32, xMax = hx + width * 0.14;
       for (const w of walkers) {
-        if (w.rest > 0) w.rest -= step;
-        else {
-          w.x += w.dir * w.speed * step;
-          if (w.x < xMin || w.x > xMax) w.dir = w.x < xMin ? 1 : -1;
-          if (Math.random() < step * 0.25) { w.rest = 0.8 + Math.random() * 2.5; if (Math.random() < 0.4) w.dir *= -1; }
+        w.feel += step;
+        if (w.rest > 0) {
+          w.rest -= step;
+          if (w.rest <= 0) {
+            // Off again: mostly onward, sometimes back the way it came; a little faster or slower each time.
+            if (Math.random() < 0.3 || w.x < xMin || w.x > xMax) w.dir = w.x < xMin ? 1 : w.x > xMax ? -1 : -w.dir;
+            w.top = bug * (0.45 + Math.random() * 0.25);
+            w.walk = 1.5 + Math.random() * 3.5;
+          }
+        } else {
+          w.walk -= step;
+          if (w.walk <= 0 || (w.dir < 0 && w.x < xMin) || (w.dir > 0 && w.x > xMax)) w.rest = 0.7 + Math.random() * 2.2;
         }
+        // Turning round: the body pivots through side-on before it walks off the other way.
+        w.face += Math.sign(w.dir - w.face) * Math.min(Math.abs(w.dir - w.face), step * 3);
+        const turned = Math.abs(w.face - w.dir) < 0.05;
+        const target = w.rest > 0 || !turned ? 0 : w.top;
+        w.v += (target - w.v) * Math.min(1, step * 5);
+        w.x += w.dir * w.v * step;
+        // Legs cycle with distance covered, so feet never slide.
+        w.phase += (w.v * step) / (bug * 0.5);
         const gy = world.top(2, w.x), slope = Math.atan2(world.top(2, w.x + 2) - world.top(2, w.x - 2), 4);
         g.save();
         g.translate(w.x, gy);
         g.rotate(slope);
-        if (w.kind === "ladybird") ladybird(g as unknown as Pen, 0, -bug * 0.45, bug, w.dir);
-        else beetle(g as unknown as Pen, 0, -bug * 1.2 * 0.48, bug * 1.2, w.dir);
+        ladybirdWalk(g as unknown as Pen, 0, 0, bug, w.face, w.phase, Math.min(1, w.v / (bug * 0.3)), w.feel);
         g.restore();
       }
     }
-
     // The hero's own falling leaves and petals, and the visitors in the trees.
-    fall({ layout, ambient }, ox, oy, k);
+    fall({ layout: heroLayout(shown), ambient }, ox, oy, k);
     const hp = player.places[i]!;
     // The day counter rides just above the crown: world point to screen, kept clear of the nav.
     const tipY = sy + (oy + hp.y * k - hy) * zoom;
-    const root = document.documentElement.style;
-    root.setProperty("--tree-x", `${sx.toFixed(1)}px`);
-    root.setProperty("--tree-y", `${Math.max(navBottom + 70, tipY - 14).toFixed(1)}px`);
+    const cx = `${Math.round(sx)}px`, cy = `${Math.round(Math.max(navBottom + 70, copyBottom - y + 70, tipY - 14))}px`;
+    if (counter && (cx !== counterX || cy !== counterY)) {
+      counterX = cx; counterY = cy;
+      counter.style.setProperty("--tree-x", cx);
+      counter.style.setProperty("--tree-y", cy);
+    }
     if (shown > 0.45) crown(ox + hp.x * k, oy + hp.y * k, hp.w * k, hp.h * k);
     if (!settings.reduced && perches.length) {
       treeLife.step(g as unknown as Pen, {
@@ -295,18 +375,17 @@ export function createScene(
         habitats: ["garden"],
       }, clock * 1000, step);
     }
-    // Focus on the tree picker: the world dims a little while its card is centred.
+    // Trees nearer the camera than the hero, drawn last so they stand in front.
+    for (const spot of spots) if (spot.depth !== undefined) drawTree(spot);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (pr) {
-      const focus = smooth(clamp01(1 - Math.abs(pr.top + pr.height / 2 - height / 2) / (height * 0.7)));
-      if (focus > 0) { g.fillStyle = `rgba(12, 22, 36, ${(0.22 * focus).toFixed(3)})`; g.fillRect(0, 0, width, height); }
-    }
+    if (focus > 0) { g.fillStyle = `rgba(12, 22, 36, ${(0.22 * focus).toFixed(3)})`; g.fillRect(0, 0, width, height); }
 
     // Flying visitors live in screen space on their own clock; scrolling never moves them.
     if (!settings.reduced) {
       sky.step(g as unknown as Pen, {
         W: width, H: height, s: Math.max(10, width * (mobile ? 0.032 : 0.015)),
-        air: [0, height * 0.12, width, height * 0.75],
+        // On wide screens they keep to the right, clear of the headline and story cards.
+        air: [mobile ? 0 : width * 0.45, height * 0.12, width, height * 0.75],
         ground: [],
         time: settings.time, lively: 1,
         max: { butterfly: 4, bee: 4, bird: 0, firefly: 14, dragonfly: 1, ladybird: 0 },
@@ -335,6 +414,9 @@ export function createScene(
       disposed = true;
       cancelAnimationFrame(raf);
       observer.disconnect();
+      pageObserver.disconnect();
+      player.dispose();
+      layerCache.length = 0;
       window.removeEventListener("scroll", schedule);
       document.removeEventListener("visibilitychange", visibility);
     },

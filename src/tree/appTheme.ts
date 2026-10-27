@@ -40,7 +40,7 @@ export const themes: Record<SkyPhase, Theme> = {
     leaf: "#2F7D47", skip: "#7A4C0C", todo: "rgba(31,51,64,0.2)", line: "rgba(31,51,64,0.14)",
   },
   dusk: {
-    phase: "dusk", sky: ["#22305C", "#3F5585", "#D29676"], skyAt: [0, 0.6, 1],
+    phase: "dusk", sky: ["#3E5288", "#8A7FA8", "#F0B07E"], skyAt: [0, 0.6, 1],
     ink: "#FBF5F2", soft: "rgba(251,245,242,0.9)", glass: "rgba(20,32,60,0.32)", panel: "#24345E",
     hill: "#4E7350", hill2: "#3B5E40", onInk: "#1C2B52", stars: false,
     leaf: "#B5E39B", skip: "#FFD79A", todo: "rgba(251,245,242,0.24)", line: "rgba(251,245,242,0.16)",

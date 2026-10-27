@@ -62,3 +62,7 @@ Feedback updates this spec; the build follows it. Two variants ship from the sam
 38. **Picker heading:** "You pick your style."
 
 39. **Nothing loads after the page shows.** The loader stays up with real progress until every image is in: all hero frames (every second frame on phones, decoded at drawn size), the grove trees and every tree picker frame. Downloads are queued and retried; a dead connection still gets the page after 45 seconds.
+
+40. **No beetle** (owner: "remove this"). One ladybird walks the ground.
+
+41. **Loader: the app icon in a wreath of leaves** (owner picked concept 4: "the minimal design with the app's logo and leaves is the way"). 24 leaves grow in around the icon as the page loads (real progress), with the Thrivling wordmark below on warm off-white. No percentage text.

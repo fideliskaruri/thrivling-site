@@ -1,10 +1,11 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { GlassSelect, type SelectOption } from "./components/GlassSelect";
 import { DayCount } from "./components/DayCount";
 import { TreePicker } from "./components/TreePicker";
 import { TreeScene } from "./components/TreeScene";
 import { useReducedMotionPreference } from "./useReducedMotionPreference";
 import { useSky, type SkyChoice } from "./useSky";
+import { setDay } from "./dayStore";
 
 const SKY_OPTIONS: SelectOption<SkyChoice>[] = [
   { value: "auto", label: "Auto", hint: "Local time" },
@@ -36,8 +37,9 @@ function PlayLogo() {
   );
 }
 
+/** Every "Join" goes straight to the testers group, which is the Google Play test list: one step, no detour. */
 function TesterLink({ compact = false }: { compact?: boolean }) {
-  return <a className={`tester-link ${compact ? "tester-link--nav" : ""}`} href="#early-testers" aria-label="Join early testers">
+  return <a className={`tester-link ${compact ? "tester-link--nav" : ""}`} href={TESTER_GROUP_URL} target="_blank" rel="noopener" aria-label="Join early testers on Google Play">
     {compact ? <><span className="label-full">Join early testers</span><span className="label-short" aria-hidden="true">Join</span></> : "Join early testers"}
   </a>;
 }
@@ -47,16 +49,21 @@ export default function App() {
   const reduced = useReducedMotionPreference();
   useEffect(() => {
     const root = document.documentElement;
+    const set = (key: string, value: boolean) => { const v = value ? "1" : "0"; if (root.dataset[key] !== v) root.dataset[key] = v; };
+    const picker = document.getElementById("trees");
     const on = () => {
+      const y = window.scrollY, h = window.innerHeight;
       // The counter stays on the tree for the first half screen of scrolling, then moves into the nav.
-      root.dataset.scrolled = window.scrollY > window.innerHeight * 0.55 ? "1" : "0";
-      root.dataset.deep = window.scrollY > window.innerHeight * 0.8 ? "1" : "0";
+      set("scrolled", y > h * 0.55);
+      set("deep", y > h * 0.8);
+      // Back-to-top steps aside while the tree picker is in front, so it never covers the picker's controls.
+      const r = picker?.getBoundingClientRect();
+      set("picking", !!r && r.top < h * 0.6 && r.bottom > h * 0.4);
     };
     on();
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
   }, []);
-  const [day, setDay] = useState(0);
   const style = {
     "--sky-top": theme.sky[0], "--sky-mid": theme.sky[1], "--sky-bottom": theme.sky[2],
     "--ink": theme.ink, "--soft": theme.soft, "--glass": theme.glass, "--panel": theme.panel,
@@ -73,16 +80,13 @@ export default function App() {
         <div className="stars">{Array.from({ length: 18 }, (_, i) =>
           <i key={i} style={{ left: `${(i * 43 + 7) % 100}%`, top: `${(i * 17 + 9) % 65}%`, opacity: 0.35 + (i % 3) * 0.25 }} />,
         )}</div>
-        <div className="world-hill world-hill--back" />
-        <div className="world-hill world-hill--front" />
       </div>
-      <TreeScene paused={false} reduced={reduced} time={phase} onDay={setDay} />
 
       <header className="site-header">
         <div className="nav-glass glass-pane">
           <BrandMark />
-          <div className="nav-counter" aria-live="polite" aria-label={`Day ${day}`}>
-            <DayCount day={day} />
+          <div className="nav-counter" aria-hidden="true">
+            <DayCount />
           </div>
           <div className="nav-end">
           <nav className="main-nav" aria-label="Main navigation">
@@ -95,20 +99,21 @@ export default function App() {
           </div>
         </div>
       </header>
-      {/* At the bottom on arrival; once scrolling starts it fades into the nav (see .nav-counter). */}
+      {/* Rides on top of the tree; after half a screen of scrolling it fades into the nav (see .nav-counter). */}
       <div className="tree-counter glass-pane" aria-hidden="true">
-        <DayCount day={day} />
+        <DayCount />
       </div>
       {notice && <p className="preference-notice glass-pane" role="status">{notice}</p>}
 
       <main id="main">
+        <TreeScene paused={false} reduced={reduced} time={phase} onDay={setDay} />
         <section className="hero-section" aria-labelledby="hero-title">
           <div className="hero-inner">
           <div className="hero-copy">
             <h1 id="hero-title">Progress that feels alive.</h1>
             <p className="hero-subhead">Whether you’re growing a daily ritual or quietly outgrowing a vice, Thrivling turns your days into a living companion.</p>
             <TesterLink />
-            {!reduced && <p className="scroll-hint" aria-hidden="true"><span /> Scroll to grow it</p>}
+            {!reduced && <p className="scroll-hint" aria-hidden="true"><span className="scroll-hint-mouse" /><span className="scroll-hint-swipe" /> Scroll to grow it</p>}
           </div>
 
           </div>
@@ -144,17 +149,20 @@ export default function App() {
         {/* The camera's last stop: the whole grove, standing above the footer. */}
         <section className="grove-end" aria-label="The whole grove" />
       </main>
-      <footer className="site-footer">
+      <div className="site-footer-wrap">
+      <footer className="site-footer glass-pane">
         <BrandMark />
         <nav aria-label="Footer">
           <a href="#trees">Trees</a><a href="#grove">The grove</a>
-          <a href={TESTER_GROUP_URL} target="_blank" rel="noopener">Google Play testers</a>
         </nav>
         <p>© {new Date().getFullYear()} Thrivling</p>
       </footer>
+      </div>
+      <nav aria-label="Back to top">
       <a className="to-top glass-pane" href="#home" aria-label="Back to top">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </a>
+      </nav>
     </div>
   );
 }

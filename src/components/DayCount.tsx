@@ -1,7 +1,9 @@
 import { LeafIcon } from "./LeafIcon";
+import { useDay } from "../dayStore";
 
 /** The day count, like the app's counter: each digit that changes rolls up into place, and the leaf gives a small nod. */
-export function DayCount({ day }: { day: number }) {
+export function DayCount() {
+  const day = useDay();
   const digits = String(day).split("");
   return (
     <>

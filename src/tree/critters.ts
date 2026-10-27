@@ -8,6 +8,70 @@ export const WINGS = [
   ["#F3B6C8", "#D9829E"],
 ] as const;
 
+/**
+ * A ladybird seen from the side, walking on the ground line at y (feet on it). `phase` advances with distance walked
+ * and drives a tripod gait (front and back legs on one side swing with the middle leg on the other); `face` runs from
+ * -1 to 1 and passes through 0 while it turns round, so a turn reads as the body pivoting, not a mirror flip;
+ * `feel` twitches the antennae while it rests.
+ */
+export function ladybirdWalk(ctx: Pen, x: number, y: number, s: number, face: number, phase: number, stride: number, feel: number) {
+  ctx.save();
+  ctx.translate(x, y);
+  // While turning it narrows a little (seen more end-on), then shows the other side.
+  ctx.scale(Math.sign(face || 1) * (0.62 + 0.38 * Math.abs(face)), 1);
+  const bob = -Math.abs(Math.sin(phase * Math.PI * 2)) * s * 0.012 * stride;
+  // One leg: hip on the body, foot on the ground. In stance the foot slides back under the body; in swing it lifts.
+  const leg = (hipX: number, footX: number, offset: number, color: string, width: number) => {
+    const t = ((phase + offset) % 1 + 1) % 1;
+    const swing = t > 0.5;
+    const u = swing ? (t - 0.5) * 2 : t * 2;
+    const reach = s * 0.08 * stride;
+    const fx = footX + (swing ? -reach + 2 * reach * u : reach - 2 * reach * u);
+    const fy = swing ? -Math.sin(u * Math.PI) * s * 0.045 * stride : 0;
+    // Hips tuck under the dome; knees bend outward and stay below the shell rim, so only shin and foot show.
+    const hx = hipX, hy = -s * 0.07 + bob;
+    const kx = (hx + fx) / 2 + (fx >= hx ? s * 0.035 : -s * 0.035), ky = Math.min(hy, fy) - s * 0.012;
+    ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+  };
+  const thin = Math.max(0.8, s * 0.03);
+  // Far legs first (behind the body), lighter.
+  leg(s * 0.18, s * 0.3, 0.5, "#6B5A55", thin * 0.9);
+  leg(-s * 0.02, s * 0.0, 0, "#6B5A55", thin * 0.9);
+  leg(-s * 0.2, -s * 0.3, 0.5, "#6B5A55", thin * 0.9);
+  ctx.save();
+  ctx.translate(0, bob);
+  // Head and pronotum, low at the front.
+  ctx.fillStyle = "#1E1C1F"; oval(ctx, s * 0.42, -s * 0.13, s * 0.12, s * 0.1);
+  ctx.fillStyle = "#F3EBDD"; oval(ctx, s * 0.47, -s * 0.16, s * 0.035, s * 0.03);
+  ctx.fillStyle = "#26242A"; oval(ctx, s * 0.3, -s * 0.2, s * 0.13, s * 0.12);
+  ctx.fillStyle = "#EFE6D6"; oval(ctx, s * 0.33, -s * 0.24, s * 0.045, s * 0.035);
+  // Antennae: short, clubbed, feeling the air.
+  ctx.strokeStyle = "#1E1C1F"; ctx.lineWidth = Math.max(0.6, s * 0.016);
+  const tw = Math.sin(feel * 9) * 0.05 + Math.sin(feel * 23) * 0.02;
+  ctx.beginPath();
+  ctx.moveTo(s * 0.5, -s * 0.18); ctx.quadraticCurveTo(s * 0.6, -s * (0.3 + tw), s * 0.66, -s * (0.25 + tw * 1.5));
+  ctx.moveTo(s * 0.47, -s * 0.2); ctx.quadraticCurveTo(s * 0.55, -s * (0.34 - tw), s * 0.6, -s * (0.31 - tw * 1.5));
+  ctx.stroke();
+  // The domed shell (elytra): flat underside, glossy red, black spots following the curve.
+  const shell = ctx.createRadialGradient(-s * 0.08, -s * 0.42, s * 0.02, 0, -s * 0.2, s * 0.6);
+  shell.addColorStop(0, "#FF8A6E"); shell.addColorStop(0.5, "#E5443A"); shell.addColorStop(1, "#9A2628");
+  ctx.fillStyle = shell;
+  ctx.beginPath(); ctx.ellipse(-s * 0.03, -s * 0.1, s * 0.4, s * 0.36, 0, Math.PI, 2 * Math.PI); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#3A1716"; ctx.fillRect(-s * 0.43, -s * 0.11, s * 0.8, s * 0.035);
+  ctx.fillStyle = "#231F22";
+  oval(ctx, -s * 0.2, -s * 0.24, s * 0.07, s * 0.06);
+  oval(ctx, s * 0.08, -s * 0.33, s * 0.07, s * 0.06);
+  oval(ctx, s * 0.2, -s * 0.18, s * 0.06, s * 0.055);
+  oval(ctx, -s * 0.05, -s * 0.15, s * 0.055, s * 0.05);
+  ctx.fillStyle = "rgba(255,255,255,0.55)"; oval(ctx, -s * 0.1, -s * 0.38, s * 0.09, s * 0.035, -0.25);
+  ctx.restore();
+  // Near legs last, in front of the body, darker.
+  leg(s * 0.2, s * 0.34, 0, "#231F22", thin);
+  leg(0, s * 0.04, 0.5, "#231F22", thin);
+  leg(-s * 0.18, -s * 0.26, 0, "#231F22", thin);
+  ctx.restore();
+}
 function oval(ctx: Pen, x: number, y: number, rx: number, ry: number, rot = 0) {
   ctx.beginPath();
   ctx.ellipse(x, y, Math.max(0.1, rx), Math.max(0.1, ry), rot, 0, 2 * Math.PI);
