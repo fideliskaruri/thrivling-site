@@ -14,14 +14,13 @@ The dev server uses port 5190. The production build targets `/thrivling-site/` o
 
 ## Shared app artwork and animation
 
-`src/tree` is copied from Thrivling's `packages/tree/src` at app commit `290a06f`. The only source cleanup is an unused `clamp` import in `fallen.ts`. `appTheme.ts` is copied from the same commit's `components/window/tokens.ts`. Keep this provenance when updating the engine.
+The hero and the tree picker preview play the app's own tree picker images: `public/assets/picker/*.webp` and the placements in `src/scene/stages.ts` are copied from Thrivling's `apps/mobile/assets/picker` and `components/window/create/pickerImages.ts` at app commit `290a06f` (rendered by the app's `scripts/render-picker-trees.ts`). Stages crossfade in order on a 2D canvas, the same way the app picker plays them. Regenerate both from the app when its painters change.
 
-The site uses the same procedural skeleton, growth layout, species painters, bone hierarchy, `bendAngle` wind function, and painter ordering as the app's web renderer. `src/scene/SkiaPen.ts` adapts its Pen to CanvasKit 0.41 with explicit WASM resource disposal. Geometry is recorded into SkPictures, not raster images. Tree generation happens at six growth stages, not every animation frame. Soil and grass layers are omitted so the trunk sits on the site's continuous hill.
+`src/tree` is copied from Thrivling's `packages/tree/src` at the same commit. The site uses it for the app's ambient life: falling petals, bees at the blossoms, butterflies, birds and night fireflies are the app's `createAmbient` and `createLife`, drawn on the same canvas through the browser's own 2D context (it satisfies the engine's `Pen`). More life joins as the visitor scrolls into the grove. `appTheme.ts` is copied from the app's `components/window/tokens.ts`.
 
-There is one visible canvas across the page, including the grove. It pauses when the tab is hidden. Pause and reduced motion stop continuous animation callbacks; scroll and resize still redraw. Reduced motion starts with the mature tree. WebGL/CanvasKit loading errors show a retry action rather than silently switching to images. CanvasKit WASM is served from the same GitHub Pages site, with no external CDN dependency.
+One fixed canvas draws the whole scene. It pauses when the tab is hidden and draws only on scroll and resize once paused. Reduced motion shows the grown tree with no ambient life. A small inline loader in `index.html` shows until the first tree stage is decoded.
 
-Brand and favicon PNGs are the app assets. `LeafIcon.tsx` preserves the app's exact `LeafCounts.tsx` paths, including the rotated fallen leaf for Skip. Urbanist fonts are self-hosted.
-
+Brand and favicon PNGs are the app assets. `LeafIcon.tsx` preserves the app's exact `LeafCounts.tsx` paths. Urbanist fonts are self-hosted. `GlassSelect.tsx` is a shadcn-style accessible select (listbox pattern) themed as the app's glass.
 ## Sky
 
 Auto follows the app's local-clock bands: night before 07:00, dawn until 10:00, day until 17:00, dusk until 20:00, then night. It checks every minute and on tab visibility changes. Dawn, Day, Dusk and Night overrides persist locally. Scrolling moves the tree through the landscape but does not override the visitor's time setting.

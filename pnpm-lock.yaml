@@ -166,9 +166,6 @@ importers:
 
   .:
     dependencies:
-      canvaskit-wasm:
-        specifier: 0.41.0
-        version: 0.41.0
       react:
         specifier: ^19.2.0
         version: 19.3.1
@@ -726,9 +723,6 @@ packages:
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
 
-  '@webgpu/types@0.1.21':
-    resolution: {integrity: sha1-sYEgLa7DDWbM1nJk3iOBTP0XbTo=, tarball: https://registry.npmjs.org/@webgpu/types/-/types-0.1.21.tgz}
-
   baseline-browser-mapping@2.11.30:
     resolution: {integrity: sha512-YJs6Pz17RMNv8HoyKREtCY38E3BV1nPkWVmIb+XN1uHC1Vqt3KZCH/uJH9ZKRoiKb/icZ6tvehyee6RZNbFfRA==, tarball: https://registry.npmjs.org/baseline-browser-mapping/-/baseline-browser-mapping-2.11.30.tgz}
     engines: {node: '>=6.0.0'}
@@ -741,9 +735,6 @@ packages:
 
   caniuse-lite@1.0.30001817:
     resolution: {integrity: sha512-uZ1JG80BwhtMalIAGPxPfmNhHyd/B/nTdr3hITWlRamSyAdUStP1Gop01e7SD5q6J90ixJvWDbvmiFVfDgn4bw==, tarball: https://registry.npmjs.org/caniuse-lite/-/caniuse-lite-1.0.30001817.tgz}
-
-  canvaskit-wasm@0.41.0:
-    resolution: {integrity: sha1-YGitZjE6cK8N0tdi95IBH1U7Qnc=, tarball: https://registry.npmjs.org/canvaskit-wasm/-/canvaskit-wasm-0.41.0.tgz}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha1-S1YPZJ/E6RjdCrdc9JYei8iC2Co=, tarball: https://registry.npmjs.org/convert-source-map/-/convert-source-map-2.0.0.tgz}
@@ -1417,8 +1408,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@webgpu/types@0.1.21': {}
-
   baseline-browser-mapping@2.11.30: {}
 
   browserslist@4.29.4:
@@ -1430,10 +1419,6 @@ snapshots:
       update-browserslist-db: 1.3.4(browserslist@4.29.4)
 
   caniuse-lite@1.0.30001817: {}
-
-  canvaskit-wasm@0.41.0:
-    dependencies:
-      '@webgpu/types': 0.1.21
 
   convert-source-map@2.0.0: {}
 

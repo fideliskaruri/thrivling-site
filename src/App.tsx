@@ -1,8 +1,18 @@
 import { useState, type CSSProperties } from "react";
-import { TreeScene } from "./components/TreeScene";
+import { GlassSelect, type SelectOption } from "./components/GlassSelect";
 import { LeafIcon } from "./components/LeafIcon";
+import { TreePicker } from "./components/TreePicker";
+import { TreeScene } from "./components/TreeScene";
 import { useReducedMotionPreference } from "./useReducedMotionPreference";
 import { useSky, type SkyChoice } from "./useSky";
+
+const SKY_OPTIONS: SelectOption<SkyChoice>[] = [
+  { value: "auto", label: "Auto", hint: "Local time" },
+  { value: "dawn", label: "Dawn" },
+  { value: "day", label: "Day" },
+  { value: "dusk", label: "Dusk" },
+  { value: "night", label: "Night" },
+];
 
 function BrandMark() {
   return <a className="brand" href="#home" aria-label="Thrivling home">
@@ -41,28 +51,17 @@ export default function App() {
         <div className="world-hill world-hill--back" />
         <div className="world-hill world-hill--front" />
       </div>
-      <TreeScene paused={paused} reduced={reduced} replay={replay} onDay={setDay} />
+      <TreeScene paused={paused} reduced={reduced} replay={replay} time={phase} onDay={setDay} />
 
       <header className="site-header">
         <div className="nav-glass glass-pane">
           <BrandMark />
           <nav className="main-nav" aria-label="Main navigation">
-            <a href="#grove">The grove</a><a href="#privacy">Privacy</a><a href="#pricing">Pricing</a>
+            <a href="#trees">Trees</a><a href="#grove">The grove</a><a href="#privacy">Privacy</a>
           </nav>
           <TesterLink compact />
         </div>
       </header>
-
-      <aside className="sky-controls glass-pane" aria-label="Sky and animation settings">
-        <label htmlFor="sky-choice">Your sky</label>
-        <select id="sky-choice" value={choice} onChange={event => choose(event.target.value as SkyChoice)}>
-          <option value="auto">Auto · local time</option><option value="dawn">Dawn</option>
-          <option value="day">Day</option><option value="dusk">Dusk</option><option value="night">Night</option>
-        </select>
-        <button type="button" className="motion-button" aria-label={paused ? "Play animation" : "Pause animation"} aria-pressed={paused} onClick={() => setPaused(p => !p)}>
-          {paused ? "Play" : "Pause"}
-        </button>
-      </aside>
       {notice && <p className="preference-notice glass-pane" role="status">{notice}</p>}
 
       <main id="main">
@@ -70,29 +69,35 @@ export default function App() {
           <div className="hero-copy">
             <h1 id="hero-title">Progress that feels alive.</h1>
             <p className="hero-subhead">Whether you’re growing a daily ritual or quietly outgrowing a vice, Thrivling turns your days into a living companion.</p>
-            <p className="hero-frame">Grow what nourishes you. Outgrow what doesn't.</p>
             <TesterLink />
           </div>
-          <div className="growth-card glass-pane">
-            <div className="growth-heading"><span>Sun Sprout</span><span className="growth-day">Day {day}</span></div>
-            <div className="day-marks" aria-label={`Growth preview: day ${day} of 90`}>
-              {Array.from({ length: 30 }, (_, i) => <LeafIcon key={i} filled={i < day / 3} className={i < day / 3 ? "is-grown" : ""} />)}
+          <div className="hero-bar glass-pane">
+            <div className="hero-day" aria-live="polite">
+              <LeafIcon filled className="hero-day-leaf" />
+              <span className="hero-day-count">{day}<small>d</small></span>
+              <span className="hero-day-label">Sun Sprout</span>
             </div>
-            <div className="growth-footer"><span>A glimpse of your first 90 days</span>
-              <button type="button" onClick={() => { setPaused(false); setReplay(n => n + 1); }} aria-label="Replay tree growth">Replay</button>
-            </div>
+            <button type="button" className="hero-icon-button" aria-label="Replay tree growth" onClick={() => { setPaused(false); setReplay(n => n + 1); }}>
+              <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5M4 3v3.5h3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+            <GlassSelect label="Sky" value={choice} options={SKY_OPTIONS} onChange={choose} placement="above" />
+            <button type="button" className="hero-icon-button" aria-label={paused ? "Play animation" : "Pause animation"} aria-pressed={paused} onClick={() => setPaused(p => !p)}>
+              {paused
+                ? <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7 5l8 5-8 5z" fill="currentColor" /></svg>
+                : <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7 5v10M13 5v10" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>}
+            </button>
           </div>
-          <a className="scroll-cue" href="#grove">A little more, every day</a>
         </section>
+
+        <TreePicker reduced={reduced} />
 
         <section className="story-section" id="grove" aria-labelledby="grove-title">
           <div className="story-panel glass-pane">
-            <h2 id="grove-title">Different goals.<br />Room to grow.</h2>
-            <p>Grow what nourishes you. Outgrow what doesn't.</p>
+            <h2 id="grove-title">Grow what nourishes you. Outgrow what doesn't.</h2>
             <p>Two goals can grow side by side. To anyone else, they are simply trees in a quiet grove.</p>
             <div className="grove-names">
-              <div><LeafIcon className="grove-leaf" /><strong>Sun Sprout</strong><span>A daily ritual</span></div>
-              <div><LeafIcon fallen className="grove-leaf grove-leaf--other" /><strong>Iron Bark</strong><span>A fresh beginning</span></div>
+              <div><LeafIcon filled className="grove-leaf" /><strong>Sun Sprout</strong><span>A daily ritual</span></div>
+              <div><LeafIcon filled className="grove-leaf grove-leaf--other" /><strong>Iron Bark</strong><span>A fresh beginning</span></div>
             </div>
             <p className="small-copy">Only you know which is which.</p>
           </div>
@@ -101,15 +106,13 @@ export default function App() {
         <section className="story-section" aria-labelledby="days-title">
           <div className="story-panel glass-pane">
             <h2 id="days-title">Every kind of day belongs.</h2>
-            <p>Done marks a day that supports your goal. Skip neutrally records a day that went differently. Your tree keeps the whole story either way.</p>
+            <p>Done marks a day that supports your goal. Skip records a day that went differently. Your tree keeps the whole story either way.</p>
             <div className="daily-demo">
-              <div className="daily-demo-title"><strong>Today, gently</strong><span className="small-copy">Try a check-in</span></div>
               <div className="demo-actions" role="group" aria-label="Try a daily check-in">
-                <button type="button" className={`action-button ${mark === "done" ? "is-done" : ""}`} aria-pressed={mark === "done"} onClick={() => setMark("done")}><LeafIcon filled={mark === "done"} /> Done</button>
                 <button type="button" className={`action-button ${mark === "skip" ? "is-skip" : ""}`} aria-pressed={mark === "skip"} onClick={() => setMark("skip")}><LeafIcon fallen filled={mark === "skip"} /> Skip</button>
+                <button type="button" className={`action-button action-button--primary ${mark === "done" ? "is-done" : ""}`} aria-pressed={mark === "done"} onClick={() => setMark("done")}><LeafIcon filled /> Done</button>
               </div>
-              <p className="demo-message" aria-live="polite">{mark === "done" ? "Done today. One day that supports your goal." : mark === "skip" ? "Skipped today. Your tree and its history stay in place." : "A day to celebrate, or a day to simply record."}</p>
-              <p className="small-copy">This is a preview. Nothing is saved to a goal.</p>
+              <p className="demo-message" aria-live="polite">{mark === "done" ? "Done today. Your tree grew a little." : mark === "skip" ? "Skipped today. A few leaves fall. Your tree keeps its size." : "Try a check-in. Nothing here is saved."}</p>
             </div>
           </div>
         </section>
@@ -118,29 +121,8 @@ export default function App() {
           <div className="story-panel glass-pane">
             <h2 id="privacy-title">A protected garden, even in plain sight.</h2>
             <p>Goals use codenames, so your grove can be peaceful to anyone glancing at your phone.</p>
-            <p>On Android, your trees and notes are encrypted and stored on your phone. An optional PIN or biometric lock keeps your garden yours.</p>
-            <p className="small-copy">Your goals are personal. Your home screen doesn't have to explain them.</p>
+            <p>On Android, your trees and notes are encrypted and stored on your phone. An optional PIN or fingerprint lock keeps your garden yours.</p>
           </div>
-        </section>
-
-        <section className="pricing-section" id="pricing" aria-labelledby="pricing-title">
-          <div className="pricing-heading"><h2 id="pricing-title">A grove worth keeping.</h2><p>Launch pricing. A place to begin, or room for more.</p></div>
-          <div className="pricing-grid">
-            <article className="price-card glass-pane">
-              <h3>Free</h3><p className="price-amount">$0</p><p>A place to begin.</p>
-              <ul><li><LeafIcon />Up to 3 active trees</li><li><LeafIcon />Core species</li><li><LeafIcon />Private, on-device storage on Android</li></ul>
-            </article>
-            <article className="price-card price-card--plus glass-pane">
-              <h3>Thrivling Plus</h3><p>More room for your story.</p>
-              <div className="price-options">
-                <div><strong>$1.99</strong><span>per month</span></div>
-                <div><strong>$14.99</strong><span>per year</span></div>
-                <div><strong>$29.99</strong><span>lifetime</span></div>
-              </div>
-              <p className="small-copy">Keep your grove for good, without a subscription if you prefer.</p>
-            </article>
-          </div>
-          <p className="pricing-note">These are launch prices. Closed-test access comes first.</p>
         </section>
 
         <section className="closing-section" id="early-testers" aria-labelledby="closing-title">
@@ -151,7 +133,6 @@ export default function App() {
               <strong>Early testing is coming</strong>
               <p>The invitation link isn't available yet. We'll put it here when the tester group opens.</p>
             </div>
-            <p className="small-copy">The Google Play listing is not available yet.</p>
           </div>
         </section>
       </main>
