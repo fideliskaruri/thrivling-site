@@ -70,8 +70,9 @@
   .hero-subhead { margin: 26px 0 30px; font-size: clamp(16px, 1.35vw, 19px); max-width: 40ch; color: var(--soft); }
   .nav-tools { display: flex; align-items: center; gap: 6px; }
   /* The day counter starts at the bottom, then moves into the middle of the nav as soon as scrolling begins. */
-  .tree-counter { position: fixed; z-index: 25; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); display: flex; align-items: baseline; gap: 6px; padding: 8px 16px 8px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
-    transform: translateX(-50%); transition: opacity 280ms ease 260ms, visibility 0ms 0ms; }
+  /* Sits just above the hero tree's crown, following it as it grows. */
+  .tree-counter { position: fixed; z-index: 15; left: var(--tree-x, 50%); top: var(--tree-y, 70%); display: flex; align-items: baseline; gap: 6px; padding: 8px 16px 8px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap;
+    transform: translate(-50%, -100%); transition: opacity 280ms ease 260ms, visibility 0ms 0ms; }
   /* Scrolling: the bottom pill fades away first, then the counter fades in inside the nav. */
   [data-scrolled="1"] .tree-counter { opacity: 0; visibility: hidden; transition: opacity 260ms ease, visibility 0ms 260ms; }
   .hero-day-count { display: inline-flex; align-items: baseline; overflow: hidden; }
@@ -89,7 +90,7 @@
   .hero-day { display: flex; align-items: baseline; gap: 6px; padding: 0 12px 0 10px; }
   .hero-day-leaf { width: 18px; height: 18px; color: var(--leaf); align-self: center; }
   /* Fixed width (room for "90d"), so the counter never shifts as the digits change. */
-  .hero-day-count { font-size: 26px; font-weight: 200; letter-spacing: -.04em; font-variant-numeric: tabular-nums; width: 3.3ch; flex: none; }
+  .hero-day-count { font-size: 26px; font-weight: 200; letter-spacing: -.04em; font-variant-numeric: tabular-nums; width: 3.3ch; flex: none; justify-content: center; }
   .hero-day-count small { font-size: 15px; margin-left: 1px; }
   .hero-day-label { font-size: 13px; font-weight: 600; color: var(--soft); white-space: nowrap; }
   .hero-icon-button { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; border: 0; background: rgb(255 255 255 / .28); color: var(--ink); }

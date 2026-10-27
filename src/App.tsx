@@ -48,7 +48,8 @@ export default function App() {
   useEffect(() => {
     const root = document.documentElement;
     const on = () => {
-      root.dataset.scrolled = window.scrollY > 24 ? "1" : "0";
+      // The counter stays on the tree for the first half screen of scrolling, then moves into the nav.
+      root.dataset.scrolled = window.scrollY > window.innerHeight * 0.55 ? "1" : "0";
       root.dataset.deep = window.scrollY > window.innerHeight * 0.8 ? "1" : "0";
     };
     on();

@@ -259,6 +259,11 @@ export function createScene(
     // The hero's own falling leaves and petals, and the visitors in the trees.
     fall({ layout, ambient }, ox, oy, k);
     const hp = player.places[i]!;
+    // The day counter rides just above the crown: world point to screen, kept clear of the nav.
+    const tipY = sy + (oy + hp.y * k - hy) * zoom;
+    const root = document.documentElement.style;
+    root.setProperty("--tree-x", `${sx.toFixed(1)}px`);
+    root.setProperty("--tree-y", `${Math.max(navBottom + 70, tipY - 14).toFixed(1)}px`);
     if (shown > 0.45) crown(ox + hp.x * k, oy + hp.y * k, hp.w * k, hp.h * k);
     if (!settings.reduced && perches.length) {
       treeLife.step(g as unknown as Pen, {

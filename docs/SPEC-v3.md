@@ -57,3 +57,6 @@ Feedback updates this spec; the build follows it. Two variants ship from the sam
 34. **Small animals only for now** (owner: "lets stick to small ones"): ladybirds and beetles on the ground; bees, butterflies, dragonflies, fireflies and moths in the air and trees. No birds or squirrels.
 35. **Every tree has its own falling leaves and flowers**, not only the hero. Trees are bigger and closer together in the grove.
 36. **Counter has a fixed width** so it never shifts as the digits change.
+
+37. **The day counter sits on top of the tree**, just above the crown, following it as it grows; it stays there for the first half screen of scrolling, then fades into the nav.
+38. **Picker heading:** "You pick your style."
