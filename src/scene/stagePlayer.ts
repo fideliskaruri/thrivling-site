@@ -1,27 +1,26 @@
 import { STAGES, type PickerSpecies, type StagePlace } from "./stages";
 
-const cache = new Map<string, Promise<HTMLImageElement>>();
-/** Downloaded files kept compressed in memory (object URLs), so later decodes never touch the network. */
-const files = new Map<string, string>();
-
-/** Fetches and decodes one stage image once; later calls share the same promise. */
-export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImageElement> {
-  const key = `${dir}/${place.file}`;
-  let p = cache.get(key);
-  if (!p) {
-    const img = new Image();
-    img.decoding = "async";
-    img.src = files.get(key) ?? `${import.meta.env.BASE_URL}assets/${key}`;
-    p = img.decode().then(() => img);
-    p.catch(() => cache.delete(key));
-    cache.set(key, p);
-  }
-  return p;
-}
+import { HERO_STAGES } from "./heroStages";
 
 type Frame = CanvasImageSource;
 
-// A small queue so a phone fetches and decodes a few frames at a time instead of hundreds at once.
+// Saved copies live in the browser's Cache Storage under a name tied to this exact image set, so reloads and later
+// visits skip the network, and a deploy with re-rendered trees starts a fresh cache (old ones are removed).
+const ASSET_SET = (() => {
+  const text = JSON.stringify([HERO_STAGES, STAGES]);
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 16777619);
+  return `thrivling-assets-${(h >>> 0).toString(36)}`;
+})();
+const storage: Promise<Cache | undefined> = (async () => {
+  try {
+    if (!("caches" in window)) return undefined;
+    for (const name of await caches.keys()) if (name.startsWith("thrivling-assets-") && name !== ASSET_SET) void caches.delete(name);
+    return await caches.open(ASSET_SET);
+  } catch { return undefined; }
+})();
+
+// One download queue, so a phone fetches a few files at a time instead of hundreds at once.
 const jobs: (() => Promise<void>)[] = [];
 let active = 0;
 const LIMIT = 10;
@@ -34,67 +33,77 @@ function pump() {
 }
 const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-/**
- * Fetches one frame through the queue and decodes it at `width` device pixels (no bigger than it will be drawn),
- * retrying up to three times. Resolves undefined only if every attempt failed.
- */
-export function loadFrame(url: string, width: number, signal?: AbortSignal): Promise<Frame | undefined> {
-  return new Promise(resolve => {
-    // The download holds a queue slot; decoding happens after the slot is freed, so the network never sits idle.
-    const decode = async (blob: Blob): Promise<Frame | undefined> => {
-      try {
-        if (typeof createImageBitmap === "function") {
-          return await createImageBitmap(blob, { resizeWidth: Math.max(1, Math.round(width)), resizeQuality: "medium" });
-        }
-        const img = new Image();
-        img.src = URL.createObjectURL(blob);
-        await img.decode();
-        return img;
-      } catch { return undefined; }
-    };
+/** Each asset file is fetched once (from Cache Storage when saved, else the network, retrying) and shared. */
+const blobs = new Map<string, Promise<Blob | undefined>>();
+export function fetchFile(key: string, signal?: AbortSignal): Promise<Blob | undefined> {
+  let p = blobs.get(key);
+  if (p) return p;
+  p = new Promise<Blob | undefined>(resolve => {
     jobs.push(async () => {
+      const url = `${import.meta.env.BASE_URL}assets/${key}`;
+      const store = await storage;
+      try {
+        const saved = await store?.match(url);
+        if (saved?.ok) { resolve(await saved.blob()); return; }
+      } catch { /* fall through to the network */ }
       for (let attempt = 0; attempt < 3; attempt++) {
-        if (signal?.aborted) { resolve(undefined); return; }
+        if (signal?.aborted) break;
         try {
           const res = await fetch(url, { signal });
           if (!res.ok) throw new Error(`${res.status}`);
-          const blob = await res.blob();
-          void decode(blob).then(resolve);
+          void store?.put(url, res.clone()).catch(() => {});
+          resolve(await res.blob());
           return;
         } catch {
           await wait(400 * (attempt + 1));
         }
       }
+      blobs.delete(key);
       resolve(undefined);
     });
     pump();
   });
+  blobs.set(key, p);
+  return p;
 }
 
-/** Downloads one asset file through the queue (with retries) and keeps it in memory; resolves true when it is in. */
-export function fetchFile(key: string, signal?: AbortSignal): Promise<boolean> {
-  if (files.has(key)) return Promise.resolve(true);
-  return new Promise(resolve => {
-    jobs.push(async () => {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        if (signal?.aborted) { resolve(false); return; }
-        try {
-          const res = await fetch(`${import.meta.env.BASE_URL}assets/${key}`, { signal });
-          if (!res.ok) throw new Error(`${res.status}`);
-          files.set(key, URL.createObjectURL(await res.blob()));
-          resolve(true);
-          return;
-        } catch {
-          await wait(400 * (attempt + 1));
-        }
-      }
-      resolve(false);
+/** A frame decoded at `width` device pixels (no bigger than it is drawn), from the one shared download. */
+export async function loadFrame(key: string, width: number, signal?: AbortSignal): Promise<Frame | undefined> {
+  const blob = await fetchFile(key, signal);
+  if (!blob) return undefined;
+  try {
+    if (typeof createImageBitmap === "function") {
+      return await createImageBitmap(blob, { resizeWidth: Math.max(1, Math.round(width)), resizeQuality: "medium" });
+    }
+    return await decodeImage(blob);
+  } catch { return undefined; }
+}
+
+async function decodeImage(blob: Blob): Promise<HTMLImageElement> {
+  const img = new Image();
+  const url = URL.createObjectURL(blob);
+  img.src = url;
+  try { await img.decode(); } finally { URL.revokeObjectURL(url); }
+  return img;
+}
+
+/** A picker or grove stage, decoded once from the shared download. */
+const decoded = new Map<string, Promise<HTMLImageElement>>();
+export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImageElement> {
+  const key = `${dir}/${place.file}`;
+  let p = decoded.get(key);
+  if (!p) {
+    p = fetchFile(key).then(blob => {
+      if (!blob) throw new Error(`Could not load ${key}`);
+      return decodeImage(blob);
     });
-    pump();
-  });
+    p.catch(() => decoded.delete(key));
+    decoded.set(key, p);
+  }
+  return p;
 }
 
-/** Starts loading a species' stages in growth order, so playback can begin on the first while the rest arrive. */
+/** Decodes a species' stages from the downloaded files, ready to play. */
 export function preloadSpecies(id: PickerSpecies) {
   STAGES[id].forEach(place => void stageImage(place).catch(() => {}));
 }

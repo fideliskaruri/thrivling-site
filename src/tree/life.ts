@@ -1,5 +1,5 @@
 import type { Pen } from "./pen";
-import { WINGS, bee, bird, butterfly, crab, cone, beetle, dragonfly, drip, firefly, frog, gull, ladybird, mist, note, owl, shimmer, squirrel, star } from "./critters";
+import { WINGS, bee, bird, butterfly, crab, cone, beetle, dragonfly, drip, firefly, frog, gull, ladybird, mist, note, shimmer, squirrel, star } from "./critters";
 import type { Habitat } from "./species/types";
 
 export type LifeTime = "dawn" | "day" | "dusk" | "night";
@@ -271,11 +271,6 @@ export function createLife(): Life {
         const x = air[0] + (air[2] - air[0]) * ((i * 0.173 + 0.07) % 1);
         const y = air[1] + (air[3] - air[1]) * (0.06 + (i % 3) * 0.13);
         star(ctx, x, y, s * (0.12 + (i % 2) * 0.06), 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 0.002 + i)));
-      }
-      const perches = sc.perches ?? [];
-      if (perches.length) {
-        const [x, y] = pt(perches[0]!);
-        owl(ctx, x, y - s * 0.3, s * 1.25, Math.sin(t * 0.001 + x) > 0.97);
       }
     }
   }

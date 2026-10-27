@@ -88,7 +88,6 @@ export function createScene(
   let groveSettled = 0, pickerSettled = 0;
   // Every tree picker frame is downloaded before the page shows too, so picking a tree never waits on the network.
   const pickerFiles = PICKER_SPECIES.flatMap(id => STAGES[id].map(place => `picker/${place.file}`));
-  const abort = new AbortController();
   const report = () => {
     if (disposed) return;
     const done = player.settled + groveSettled + pickerSettled;
@@ -97,9 +96,9 @@ export function createScene(
     onProgress(done, total);
   };
   const player = new StagePlayer(HERO, 0, () => { report(); schedule(); }, "hero", frames,
-    place => loadFrame(`${import.meta.env.BASE_URL}assets/hero/${place.file}`, Math.min(place.pw, place.w / PICKER_PX * squarePx), abort.signal));
+    place => loadFrame(`hero/${place.file}`, Math.min(place.pw, place.w / PICKER_PX * squarePx)));
   const grove = new Map<GroveId, { place: StagePlace; img: HTMLImageElement }>();
-  for (const key of pickerFiles) void fetchFile(key, abort.signal).finally(() => { pickerSettled++; report(); });
+  for (const key of pickerFiles) void fetchFile(key).finally(() => { pickerSettled++; report(); });
   for (const id of groveIds) {
     const place = STAGES[id][STAGES[id].length - 1]!;
     void stageImage(place, "picker").then(img => { if (!disposed) { grove.set(id, { place, img }); schedule(); } }, () => {})
@@ -167,8 +166,10 @@ export function createScene(
     // Camera: close while the tree grows, pulling back and panning over the rest of the page.
     const pullTarget = settings.reduced ? 1 : smooth(clamp01((y - growEnd * 0.45) / Math.max(1, maxScroll - growEnd * 0.45)));
     pull = dt ? pull + (pullTarget - pull) * Math.min(1, dt * 10) : pullTarget;
-    const zoom = Math.exp(Math.log(zoomTop) * (1 - pull));
-    const sx = lerp(topX, hx, pull), sy = lerp(topGround, hy, pull);
+    // The last shot stays close too: the grove fills the screen with the hero just right of centre and the ground low.
+    const zoomEnd = mobile ? 1.25 : 1.35;
+    const zoom = Math.exp(Math.log(zoomTop) * (1 - pull) + Math.log(zoomEnd) * pull);
+    const sx = lerp(topX, width * (mobile ? 0.5 : 0.56), pull), sy = lerp(topGround, height * (mobile ? 0.8 : 0.83), pull);
     const camera = (layer: GroundLayer) => {
       const z = 1 + (zoom - 1) * PARALLAX[layer];
       g.setTransform(dpr * z, 0, 0, dpr * z, dpr * (sx - hx * z), dpr * (sy - hy * z));
@@ -332,7 +333,6 @@ export function createScene(
     update(next) { settings = next; last = 0; schedule(); },
     dispose() {
       disposed = true;
-      abort.abort();
       cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("scroll", schedule);
