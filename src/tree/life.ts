@@ -9,7 +9,7 @@ export type LifeGround = [number, number, number];
 
 export interface LifeMax {
   butterfly?: number; bee?: number; dragonfly?: number; ladybird?: number; beetle?: number;
-  bird?: number; frog?: number; squirrel?: number; crab?: number; firefly?: number;
+  bird?: number; frog?: number; squirrel?: number; crab?: number; firefly?: number; moth?: number;
 }
 
 export interface LifeScene {
@@ -150,7 +150,8 @@ export function createLife(): Life {
     if (!rain && !night && coast && ground.length && moving() && count("crab") < cap(max.crab ?? 1)
       && due("crab", t, 24000 / healthy)) groundCritter("crab", sc, t);
 
-    if (!rain && night && perches.length && !count("moth") && moving() && due("moth", t, 2000))
+    // Moths only where a scene asks for them: at a glance they read as butterflies, which do not fly at night.
+    if (!rain && night && (max.moth ?? 0) > 0 && perches.length && !count("moth") && moving() && due("moth", t, 2000))
       crit.push(route("moth", sc, [pick(perches), pick(perches)], 3600, [3500, 7000], 0.025));
 
     const wantCones = forest && !rain && !night && perches.length && due("cone", t, 42000 / healthy);

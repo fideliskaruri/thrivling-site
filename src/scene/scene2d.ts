@@ -315,8 +315,8 @@ export function createScene(
     }
     g.restore();
 
-    // Ladybirds walk the near ground's real curve, around the hero's feet.
-    if (!settings.reduced) {
+    // Ladybirds walk the near ground's real curve, around the hero's feet; at night they are tucked away.
+    if (!settings.reduced && settings.time !== "night") {
       const bug = heroWide * 0.024;
       if (!walkers.length) {
         walkers = [{ x: hx - width * 0.12, dir: 1, face: 1, v: 0, top: bug * 0.55, rest: 0.8, walk: 0, phase: 0, feel: 0 }];
