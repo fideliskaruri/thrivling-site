@@ -15,10 +15,18 @@ export function TreeScene({ paused, reduced, time, onDay }: {
 
   useEffect(() => {
     if (!canvas.current) return;
-    controller.current = createScene(canvas.current, latest.current, day => dayCallback.current(day), () => {
-      document.documentElement.classList.add("is-loaded");
+    // The boot loader stays until every tree frame is in, showing real progress; a dead connection still gets the
+    // page after 45 seconds, with frames filling in as they arrive.
+    const boot = document.getElementById("boot");
+    const reveal = () => document.documentElement.classList.add("is-loaded");
+    const safety = window.setTimeout(reveal, 45_000);
+    controller.current = createScene(canvas.current, latest.current, day => dayCallback.current(day), (done, total) => {
+      const p = total ? done / total : 1;
+      boot?.style.setProperty("--p", p.toFixed(3));
+      boot?.querySelector(".pct")?.replaceChildren(`${Math.round(p * 100)}%`);
+      if (done >= total) { window.clearTimeout(safety); reveal(); }
     });
-    return () => { controller.current?.dispose(); controller.current = undefined; };
+    return () => { window.clearTimeout(safety); controller.current?.dispose(); controller.current = undefined; };
   }, []);
 
   useEffect(() => { controller.current?.update({ paused, reduced, time }); }, [paused, reduced, time]);

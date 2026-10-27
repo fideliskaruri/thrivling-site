@@ -60,3 +60,5 @@ Feedback updates this spec; the build follows it. Two variants ship from the sam
 
 37. **The day counter sits on top of the tree**, just above the crown, following it as it grows; it stays there for the first half screen of scrolling, then fades into the nav.
 38. **Picker heading:** "You pick your style."
+
+39. **Nothing loads after the page shows.** The loader stays up with real progress until every image is in: all hero frames (every second frame on phones, decoded at drawn size), the grove trees and every tree picker frame. Downloads are queued and retried; a dead connection still gets the page after 45 seconds.

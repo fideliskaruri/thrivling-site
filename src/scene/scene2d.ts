@@ -1,8 +1,8 @@
 import { createLife, createTree, type Layout, type LifeTime } from "../tree";
 import type { Pen } from "../tree/pen";
 import { beetle, ladybird } from "../tree/critters";
-import { PICKER_PX, PICKER_SEED, STAGES, TREE_IMAGE_PADDING, TREE_SIZE, type StagePlace } from "./stages";
-import { drawPlace, stageImage, StagePlayer } from "./stagePlayer";
+import { PICKER_PX, PICKER_SEED, PICKER_SPECIES, STAGES, TREE_IMAGE_PADDING, TREE_SIZE, type StagePlace } from "./stages";
+import { drawPlace, fetchFile, loadFrame, stageImage, StagePlayer } from "./stagePlayer";
 import { HERO_STAGES } from "./heroStages";
 import { worldGround, type GroundLayer } from "./ground";
 
@@ -63,7 +63,7 @@ export function createScene(
   canvas: HTMLCanvasElement,
   options: SceneOptions,
   onDay: (day: number) => void,
-  onReady: () => void,
+  onProgress: (done: number, total: number) => void,
 ): SceneController {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("This browser could not start the tree's canvas.");
@@ -78,14 +78,32 @@ export function createScene(
   let pull = 0;
   let navBottom = 0;
 
-  const player = new StagePlayer(HERO, 0, () => {
-    if (!ready && player.loadedFirst) { ready = true; onReady(); }
-    schedule();
-  }, "hero", HERO_STAGES);
+  // Phones keep every second frame and every device decodes frames at the size they are drawn, so all of them fit
+  // in memory; the loader waits for the full set before the page shows.
+  const narrow = window.innerWidth < 768;
+  const dprCap = Math.min(window.devicePixelRatio || 1, 2);
+  const squarePx = Math.min(window.innerWidth * (narrow ? 1.35 : 0.7), window.innerHeight * 1.3) * dprCap * 1.1;
+  const frames = narrow ? HERO_STAGES.filter((_, n) => n % 2 === 0 || n === HERO_STAGES.length - 1) : HERO_STAGES;
+  const groveIds = [...new Set([...GROVE_WIDE, ...GROVE_NARROW].map(s => s.id))];
+  let groveSettled = 0, pickerSettled = 0;
+  // Every tree picker frame is downloaded before the page shows too, so picking a tree never waits on the network.
+  const pickerFiles = PICKER_SPECIES.flatMap(id => STAGES[id].map(place => `picker/${place.file}`));
+  const abort = new AbortController();
+  const report = () => {
+    if (disposed) return;
+    const done = player.settled + groveSettled + pickerSettled;
+    const total = frames.length + groveIds.length + pickerFiles.length;
+    if (!ready && done >= total) ready = true;
+    onProgress(done, total);
+  };
+  const player = new StagePlayer(HERO, 0, () => { report(); schedule(); }, "hero", frames,
+    place => loadFrame(`${import.meta.env.BASE_URL}assets/hero/${place.file}`, Math.min(place.pw, place.w / PICKER_PX * squarePx), abort.signal));
   const grove = new Map<GroveId, { place: StagePlace; img: HTMLImageElement }>();
-  for (const id of new Set([...GROVE_WIDE, ...GROVE_NARROW].map(s => s.id))) {
+  for (const key of pickerFiles) void fetchFile(key, abort.signal).finally(() => { pickerSettled++; report(); });
+  for (const id of groveIds) {
     const place = STAGES[id][STAGES[id].length - 1]!;
-    void stageImage(place, "picker").then(img => { if (!disposed) { grove.set(id, { place, img }); schedule(); } }).catch(() => {});
+    void stageImage(place, "picker").then(img => { if (!disposed) { grove.set(id, { place, img }); schedule(); } }, () => {})
+      .finally(() => { groveSettled++; report(); });
   }
 
   const model = createTree(PICKER_SEED, HERO);
@@ -314,6 +332,7 @@ export function createScene(
     update(next) { settings = next; last = 0; schedule(); },
     dispose() {
       disposed = true;
+      abort.abort();
       cancelAnimationFrame(raf);
       observer.disconnect();
       window.removeEventListener("scroll", schedule);

@@ -1,6 +1,8 @@
 import { STAGES, type PickerSpecies, type StagePlace } from "./stages";
 
 const cache = new Map<string, Promise<HTMLImageElement>>();
+/** Downloaded files kept compressed in memory (object URLs), so later decodes never touch the network. */
+const files = new Map<string, string>();
 
 /** Fetches and decodes one stage image once; later calls share the same promise. */
 export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImageElement> {
@@ -9,12 +11,87 @@ export function stageImage(place: StagePlace, dir = "picker"): Promise<HTMLImage
   if (!p) {
     const img = new Image();
     img.decoding = "async";
-    img.src = `${import.meta.env.BASE_URL}assets/${key}`;
+    img.src = files.get(key) ?? `${import.meta.env.BASE_URL}assets/${key}`;
     p = img.decode().then(() => img);
     p.catch(() => cache.delete(key));
     cache.set(key, p);
   }
   return p;
+}
+
+type Frame = CanvasImageSource;
+
+// A small queue so a phone fetches and decodes a few frames at a time instead of hundreds at once.
+const jobs: (() => Promise<void>)[] = [];
+let active = 0;
+const LIMIT = 10;
+function pump() {
+  while (active < LIMIT && jobs.length) {
+    const job = jobs.shift()!;
+    active++;
+    void job().finally(() => { active--; pump(); });
+  }
+}
+const wait = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Fetches one frame through the queue and decodes it at `width` device pixels (no bigger than it will be drawn),
+ * retrying up to three times. Resolves undefined only if every attempt failed.
+ */
+export function loadFrame(url: string, width: number, signal?: AbortSignal): Promise<Frame | undefined> {
+  return new Promise(resolve => {
+    // The download holds a queue slot; decoding happens after the slot is freed, so the network never sits idle.
+    const decode = async (blob: Blob): Promise<Frame | undefined> => {
+      try {
+        if (typeof createImageBitmap === "function") {
+          return await createImageBitmap(blob, { resizeWidth: Math.max(1, Math.round(width)), resizeQuality: "medium" });
+        }
+        const img = new Image();
+        img.src = URL.createObjectURL(blob);
+        await img.decode();
+        return img;
+      } catch { return undefined; }
+    };
+    jobs.push(async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (signal?.aborted) { resolve(undefined); return; }
+        try {
+          const res = await fetch(url, { signal });
+          if (!res.ok) throw new Error(`${res.status}`);
+          const blob = await res.blob();
+          void decode(blob).then(resolve);
+          return;
+        } catch {
+          await wait(400 * (attempt + 1));
+        }
+      }
+      resolve(undefined);
+    });
+    pump();
+  });
+}
+
+/** Downloads one asset file through the queue (with retries) and keeps it in memory; resolves true when it is in. */
+export function fetchFile(key: string, signal?: AbortSignal): Promise<boolean> {
+  if (files.has(key)) return Promise.resolve(true);
+  return new Promise(resolve => {
+    jobs.push(async () => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (signal?.aborted) { resolve(false); return; }
+        try {
+          const res = await fetch(`${import.meta.env.BASE_URL}assets/${key}`, { signal });
+          if (!res.ok) throw new Error(`${res.status}`);
+          files.set(key, URL.createObjectURL(await res.blob()));
+          resolve(true);
+          return;
+        } catch {
+          await wait(400 * (attempt + 1));
+        }
+      }
+      resolve(false);
+    });
+    pump();
+  });
 }
 
 /** Starts loading a species' stages in growth order, so playback can begin on the first while the rest arrive. */
@@ -28,7 +105,9 @@ export function preloadSpecies(id: PickerSpecies) {
  */
 export class StagePlayer {
   readonly places: StagePlace[];
-  private images: (HTMLImageElement | undefined)[];
+  private images: (Frame | undefined)[];
+  /** Frames that have finished loading, whether or not they succeeded. */
+  settled = 0;
   private start = -1;
   private held = 0;
 
@@ -38,11 +117,14 @@ export class StagePlayer {
     onImage: () => void,
     private dir = "picker",
     places: StagePlace[] = STAGES[id],
+    load?: (place: StagePlace) => Promise<Frame | undefined>,
   ) {
     this.places = places;
     this.images = new Array(this.places.length);
     this.places.forEach((place, i) => {
-      void stageImage(place, this.dir).then(img => { this.images[i] = img; onImage(); }).catch(() => {});
+      const p = load ? load(place) : stageImage(place, this.dir);
+      void p.then(img => { if (img) this.images[i] = img; }, () => {})
+        .finally(() => { this.settled++; onImage(); });
     });
   }
 
@@ -88,6 +170,6 @@ export class StagePlayer {
   }
 }
 
-export function drawPlace(g: CanvasRenderingContext2D, place: StagePlace, img: HTMLImageElement) {
+export function drawPlace(g: CanvasRenderingContext2D, place: StagePlace, img: CanvasImageSource) {
   g.drawImage(img, place.x, place.y, place.w, place.h);
 }

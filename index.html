@@ -22,6 +22,9 @@
       #boot .l1 { animation-delay: .55s; } #boot .l2 { animation-delay: .8s; } #boot .l3 { animation-delay: 1.05s; } #boot .l4 { animation-delay: 1.25s; }
       #boot .ground { fill: rgba(31,51,64,.1); }
       #boot figcaption { font-size: 15px; letter-spacing: .01em; opacity: .75; animation: boot-breathe 2.4s ease-in-out infinite; }
+      #boot .bar { width: 160px; height: 4px; border-radius: 4px; background: rgba(31,51,64,.12); overflow: hidden; }
+      #boot .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: #4f9a5a; border-radius: inherit; transition: width .3s ease; }
+      #boot .pct { font-variant-numeric: tabular-nums; }
       #boot .tree { transform-origin: 60px 132px; animation: boot-sway 3.2s ease-in-out 1.6s infinite; }
       @keyframes boot-grow { to { stroke-dashoffset: 0; } }
       @keyframes boot-leaf { to { transform: scale(1); } }
@@ -44,7 +47,8 @@
             <path class="leaf r l4" d="M60 32 C 66 20, 76 16, 84 16 C 82 28, 72 34, 60 32 Z" />
           </g>
         </svg>
-        <figcaption>Growing your grove</figcaption>
+        <figcaption>Growing your grove <span class="pct">0%</span></figcaption>
+        <div class="bar" aria-hidden="true"><i></i></div>
       </figure>
     </div>
     <div id="root"></div>
