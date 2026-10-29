@@ -9,6 +9,7 @@ const active = new Set<ReturnType<typeof animate>>();
 
 function bindReveals() {
   if (!document.documentElement.classList.contains('is-loaded')) return;
+  observer.disconnect();
   document.querySelectorAll<HTMLElement>('.hero-copy h1, .hero-subhead, .hero-copy .download-link, .story-panel h2, .story-panel p, .app-copy, .app-screens .screen-frame, .download-copy h2, .download-copy p, .official-play').forEach(element => {
     if (seen.has(element)) return;
     seen.add(element);

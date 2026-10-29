@@ -76,11 +76,16 @@ export function createScene(
   let width = 0, height = 0, dpr = 1;
   let last = 0, clock = 0, lastDay = -1;
   let shown = 0;
+  const profiling = import.meta.env.DEV && new URLSearchParams(location.search).has('perf');
+  let profileStart = 0;
+  const intervals: number[] = [], renderTimes: number[] = [];
   let pull = 0;
   let navBottom = 0;
   let maxScroll = 1;
   // Bottom of the hero copy in page units, so the counter never sits over the headline, button or scroll hint.
   let copyBottom = 0;
+  let pickerTop = 0, pickerHeight = 0;
+  const pickerCard = document.querySelector<HTMLElement>('.picker-card');
   const counter = document.querySelector<HTMLElement>(".tree-counter");
   let counterX = "", counterY = "";
 
@@ -153,6 +158,9 @@ export function createScene(
     maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
     const copy = document.querySelector(".hero-copy")?.getBoundingClientRect();
     copyBottom = copy && window.innerWidth < 768 ? copy.bottom + window.scrollY : 0;
+    const picker = pickerCard?.getBoundingClientRect();
+    pickerTop = picker ? picker.top + window.scrollY : 0;
+    pickerHeight = picker?.height ?? 0;
   };
   measurePage();
   const pageObserver = new ResizeObserver(() => { measurePage(); schedule(); });
@@ -164,12 +172,12 @@ export function createScene(
   const layerCache: LayerBitmap[] = [];
   function drawLayer(world: ReturnType<typeof worldGround>, layer: GroundLayer, z: number, ox: number, oy: number) {
     const vx0 = -ox / z, vy0 = -oy / z, vx1 = (width - ox) / z, vy1 = (height - oy) / z;
-    let hit = layerCache.find(b => b.layer === layer && b.world === world && Math.abs(Math.log(b.z / z)) < 0.045
+    let hit = layerCache.find(b => b.layer === layer && b.world === world
       && b.x0 <= vx0 && b.y0 <= vy0 && b.x1 >= vx1 && b.y1 >= vy1);
     if (!hit) {
-      const mx = (vx1 - vx0) * 0.2, my = (vy1 - vy0) * 0.2;
-      const x0 = vx0 - mx, y0 = vy0 - my, x1 = vx1 + mx, y1 = vy1 + my;
-      const scale = z * Math.min(dpr, 1.5);
+      // Cache the complete camera route once. Zooming reuses these textures rather than repainting paths.
+      const x0 = Math.min(0, vx0), y0 = Math.min(0, vy0), x1 = Math.max(width, vx1), y1 = Math.max(height, vy1);
+      const scale = Math.min(dpr, 1.5);
       const c = document.createElement("canvas");
       c.width = Math.ceil((x1 - x0) * scale); c.height = Math.ceil((y1 - y0) * scale);
       const lg = c.getContext("2d")!;
@@ -185,9 +193,10 @@ export function createScene(
 
 
   function frame(now: number) {
+    const renderStart = profiling ? performance.now() : 0;
     raf = 0;
     if (disposed) return;
-    resize();
+    if (!width) resize();
     const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
     last = now;
     const step = settings.paused ? 0 : dt;
@@ -196,8 +205,7 @@ export function createScene(
     const y = window.scrollY;
 
     // Growth: the tree grows from the top of the page until the tree picker comes up.
-    const pick = document.querySelector<HTMLElement>(".picker-card");
-    const pr = pick?.getBoundingClientRect();
+    const pr = pickerHeight ? { top: pickerTop - y, height: pickerHeight } : null;
     const arrive = pr ? y + (pr.top + pr.height / 2 - height / 2) : maxScroll * 0.7;
     const growEnd = Math.max(height * 0.5, arrive - height * 0.75);
     // Follow scroll only as far as the continuous decoded sequence can support.
@@ -393,6 +401,17 @@ export function createScene(
     if (focus > 0) { g.fillStyle = `rgba(12, 22, 36, ${(0.22 * focus).toFixed(3)})`; g.fillRect(0, 0, width, height); }
 
     const moving = shown !== target || pull !== pullTarget || (!settings.paused && !settings.reduced);
+    if (profiling) {
+      if (profileStart) intervals.push(now - profileStart);
+      profileStart = now;
+      renderTimes.push(performance.now() - renderStart);
+      if (intervals.length >= 90) {
+        const sorted = [...intervals].sort((a,b) => a-b);
+        const draws = [...renderTimes].sort((a,b) => a-b);
+        canvas.dataset.frameStats = JSON.stringify({ fps: +(1000 / (intervals.reduce((a,b)=>a+b,0) / intervals.length)).toFixed(1), intervalP95: +sorted[Math.floor(sorted.length * .95)]!.toFixed(1), drawP95: +draws[Math.floor(draws.length * .95)]!.toFixed(1), over33ms: intervals.filter(v=>v>33.4).length });
+        intervals.length = 0; renderTimes.length = 0;
+      }
+    }
     if (moving) schedule();
   }
 

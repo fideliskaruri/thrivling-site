@@ -42,21 +42,26 @@ export default function App() {
     const root = document.documentElement;
     const set = (key: string, value: boolean) => { const v = value ? "1" : "0"; if (root.dataset[key] !== v) root.dataset[key] = v; };
     const picker = document.getElementById("trees");
-    const on = () => {
+    const footerElement = document.querySelector('.site-footer');
+    let pending = 0;
+    const update = () => {
+      pending = 0;
       const y = window.scrollY, h = window.innerHeight;
+      const r = picker?.getBoundingClientRect();
+      const footer = footerElement?.getBoundingClientRect();
       // The counter stays on the tree for the first half screen of scrolling, then moves into the nav.
       set("scrolled", y > h * 0.55);
       set("deep", y > h * 0.8);
+      set("exploring", y > 48);
       // Back-to-top steps aside while the tree picker is in front, so it never covers the picker's controls.
-      const r = picker?.getBoundingClientRect();
       set("picking", !!r && r.top < h * 0.6 && r.bottom > h * 0.4);
-      const footer = document.querySelector('.site-footer')?.getBoundingClientRect();
       root.style.setProperty('--to-top-bottom', `${Math.max(20, footer ? h - footer.top + 14 : 20)}px`);
     };
-    on();
+    const on = () => { if (!pending) pending = requestAnimationFrame(update); };
+    update();
     window.addEventListener("scroll", on, { passive: true });
     window.addEventListener("resize", on);
-    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); root.style.removeProperty('--to-top-bottom'); };
+    return () => { cancelAnimationFrame(pending); window.removeEventListener("scroll", on); window.removeEventListener("resize", on); root.style.removeProperty('--to-top-bottom'); };
   }, []);
   const style = {
     "--sky-top": theme.sky[0], "--sky-mid": theme.sky[1], "--sky-bottom": theme.sky[2],
@@ -106,10 +111,12 @@ export default function App() {
             <h1 id="hero-title">Progress that feels alive.</h1>
             <p className="hero-subhead">Track the habits you want to build and the ones you want to break. Watch your progress grow into a grove of your own.</p>
             <DownloadLink />
-            <a className="scroll-hint" href="#grove" aria-label="Explore the grove">Explore <span aria-hidden="true">↓</span></a>
           </div>
 
           </div>
+          <a className="hero-scroll-cue" href="#grove" aria-label="Explore the grove">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m6 9 6 6 6-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </a>
         </section>
 
         <section className="story-section" id="grove" aria-labelledby="grove-title">
