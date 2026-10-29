@@ -1,14 +1,20 @@
 /* Launch-page refinements; the existing tree scene and sky remain the backdrop. */
 .picker-name span { display: block; margin-top: 8px; }
 .hero-copy .scroll-hint {
-  display: inline-flex;
+  display: flex;
   width: fit-content;
-  padding: 10px 14px;
-  border-radius: 18px;
+  padding: 4px 0;
+  margin-top: 18px;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
   color: var(--ink);
-  background: var(--panel);
+  background: none;
   opacity: 1;
 }
+.hero-copy .scroll-hint:hover { text-decoration: underline; text-underline-offset: 4px; }
+.hero-copy .scroll-hint:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
 .glass-pane:not(.glass-select-list) {
   background: linear-gradient(140deg, color-mix(in srgb, var(--panel) 72%, transparent), color-mix(in srgb, var(--panel) 52%, transparent));
   border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);

@@ -106,7 +106,7 @@ export default function App() {
             <h1 id="hero-title">Progress that feels alive.</h1>
             <p className="hero-subhead">Track the habits you want to build and the ones you want to break. Watch your progress grow into a grove of your own.</p>
             <DownloadLink />
-            {!reduced && <p className="scroll-hint" aria-hidden="true"><span className="scroll-hint-mouse" /><span className="scroll-hint-swipe" /> Scroll to watch it grow</p>}
+            <a className="scroll-hint" href="#grove" aria-label="Explore the grove">Explore <span aria-hidden="true">↓</span></a>
           </div>
 
           </div>
