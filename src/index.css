@@ -57,10 +57,10 @@
   .main-nav { display: flex; gap: 28px; font-size: 14px; font-weight: 600; }
   .main-nav a { display: inline-flex; align-items: center; min-height: 44px; }
   .nav-tools { display: flex; align-items: center; gap: 6px; }
-  .tester-link { display: inline-flex; min-height: 52px; align-items: center; justify-content: center; padding: 12px 26px; border-radius: 999px; background: var(--ink); color: var(--on-ink); font-size: 15px; font-weight: 600; transition: box-shadow 200ms; }
-  .tester-link:hover { box-shadow: 0 0 0 4px rgb(255 255 255 / .4); }
-  .tester-link--nav { min-height: 44px; padding: 10px 18px; font-size: 14px; white-space: nowrap; }
-  .tester-link--nav .label-short { display: none; }
+  .download-link { display: inline-flex; min-height: 52px; align-items: center; justify-content: center; padding: 12px 26px; border-radius: 999px; background: var(--ink); color: var(--on-ink); font-size: 15px; font-weight: 600; transition: box-shadow 200ms; }
+  .download-link:hover { box-shadow: 0 0 0 4px rgb(255 255 255 / .4); }
+  .download-link--nav { min-height: 44px; padding: 10px 18px; font-size: 14px; white-space: nowrap; }
+  .download-link--nav .label-short { display: none; }
   .leaf-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
   .hero-section { position: relative; height: 100svh; }
@@ -207,9 +207,9 @@
   .nav-tools { gap: 4px; }
   .nav-tools .glass-select-trigger { padding: 0 10px; }
   .nav-tools .glass-select-trigger span { display: none; }
-  .nav-tools .tester-link--nav { font-size: 13px; min-height: 44px; padding: 8px 18px; }
-  .tester-link--nav .label-full { display: none; }
-  .tester-link--nav .label-short { display: inline; }
+  .nav-tools .download-link--nav { font-size: 13px; min-height: 44px; padding: 8px 18px; }
+  .download-link--nav .label-full { display: none; }
+  .download-link--nav .label-short { display: inline; }
   /* Phone browsers draw backdrop blur at lower resolution, so it reads flatter: a stronger blur, more saturation, a
      brighter rim and a top sheen give the glass the same depth it has on desktop. */
   .glass-pane {
@@ -227,7 +227,7 @@
   .hero-copy { width: 100%; }
   .hero-copy h1 { max-width: 10ch; font-size: clamp(46px, 13vw, 64px); }
   .hero-subhead { margin: 14px 0 18px; font-size: 15px; line-height: 1.5; max-width: 34ch; }
-  .hero-copy .tester-link { min-height: 46px; font-size: 14px; padding: 10px 20px; }
+  .hero-copy .download-link { min-height: 46px; font-size: 14px; padding: 10px 20px; }
   .glass-select-trigger { padding: 0 12px; font-size: 13px; }
   /* Story cards stay compact and leave a tree-sized gap between them, so the growing tree is the show. */
   .story-section { min-height: 100svh; padding: 84px 14px 0; align-items: flex-start; }
@@ -266,7 +266,7 @@
   .hero-copy { width: 46%; }
   .hero-copy h1 { font-size: clamp(34px, 5.4vw, 48px); }
   .hero-subhead { margin: 10px 0 14px; font-size: 14px; }
-  .hero-copy .tester-link { min-height: 44px; font-size: 14px; padding: 8px 18px; }
+  .hero-copy .download-link { min-height: 44px; font-size: 14px; padding: 8px 18px; }
   .picker-stage { height: 62svh; }
 }
 @media (prefers-reduced-motion: reduce) {

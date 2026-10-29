@@ -1,6 +1,6 @@
 # Thrivling site
 
-A mobile-first landing page for Thrivling, with the app's procedural tree engine and Skia animation on one CanvasKit canvas. No tree images are used by the scene.
+A mobile-first landing page for Thrivling. App-generated tree growth frames and ambient life share a Canvas2D landscape. The launch page features native Android captures of Wisteria and the grove, with a Google Play download action.
 
 ## Development
 
@@ -25,8 +25,8 @@ Brand and favicon PNGs are the app assets. `LeafIcon.tsx` preserves the app's ex
 
 Auto follows the app's local-clock bands: night before 07:00, dawn until 10:00, day until 17:00, dusk until 20:00, then night. It checks every minute and on tab visibility changes. Dawn, Day, Dusk and Night overrides persist locally. Scrolling moves the tree through the landscape but does not override the visitor's time setting.
 
-## Before opening early testing
+## Launch presentation
 
-No real tester invitation URL has been supplied. **Join early testers** currently goes to an honest availability message on this page, not a fake signup endpoint. Replace that destination when the group opens. The page does not claim Google Play availability or accept payments.
+The app section pairs two phone captures, Wisteria first and grove second, with staggered entrance motion. Approved 1440×3120 Samsung captures live in `src/assets/app`; their status and gesture bars are clipped in CSS without changing the source resolution. `src/showcase.css` contains the launch layout refinements. Trees, ground and ambient insects share one world camera. The official Google Play badge is self-hosted in `public/assets/brand`.
 
-Free allowances and Plus launch prices are owner-supplied. Android-only privacy wording must not be generalized to the web app. The Done/Skip controls are an explicitly labeled unsaved demonstration.
+The Pages workflow publishes `main` only. The historical `real-tree` branch is not built or published by this workflow. Download actions use the URL defined in `src/App.tsx`.

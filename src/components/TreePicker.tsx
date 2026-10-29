@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { PICKER_PX, PICKER_SPECIES, type PickerSpecies } from "../scene/stages";
 import { keepDecoded, preloadSpecies, StagePlayer } from "../scene/stagePlayer";
+import { AnimatePresence } from 'motion/react';
+import * as m from 'motion/react-m';
 
 const LABELS: Record<PickerSpecies, string> = {
   cherry: "Cherry", oak: "Oak", jacaranda: "Jacaranda", wisteria: "Wisteria",
@@ -8,9 +10,9 @@ const LABELS: Record<PickerSpecies, string> = {
 };
 /** One line on what makes each tree its own. */
 const LINES: Record<PickerSpecies, string> = {
-  cherry: "Pink blossom, then summer green.", oak: "Slow, broad and full of acorns.", jacaranda: "Purple in spring.",
-  wisteria: "Long violet curtains.", sakura: "Clouds of pale pink.", japaneseMaple: "Fine leaves that turn to flame.",
-  baobab: "A great trunk that stores the rain.", flame: "Red-orange crown in the dry season.",
+  cherry: "Pink blossoms and a leafy green crown.", oak: "A broad crown dotted with acorns.", jacaranda: "Clusters of soft purple flowers.",
+  wisteria: "Cascades of violet flowers.", sakura: "Clouds of pale pink blossoms.", japaneseMaple: "Delicate leaves in fiery shades.",
+  baobab: "A wide trunk and a crown of green.", flame: "A bright canopy of red-orange flowers.",
 };
 /** The app picker's pace: the whole growth plays in this long each time a tree comes into view. */
 const GROW_MS = 1700;
@@ -95,16 +97,17 @@ export function TreePicker({ reduced }: { reduced: boolean }) {
     <section className="picker-section" id="trees" aria-labelledby="picker-title">
       <div className="picker-card glass-pane">
         <div className="picker-copy">
-          <h2 id="picker-title">You pick your style.</h2>
-          <p className="picker-lead">Every goal gets its own tree. Pick the one you want to watch grow.</p>
-          <p className="picker-name" aria-live="polite">{LABELS[id]}<span>{LINES[id]}</span></p>
+          <h2 id="picker-title">Have your pick</h2>
+          <p className="picker-lead">Choose the tree you’d like to watch grow.</p>
+          <div className="picker-name" aria-live="polite" aria-atomic="true"><AnimatePresence initial={false} mode="wait"><m.div key={id} initial={{ opacity: 0, y: reduced ? 0 : 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: reduced ? 0 : -4 }} transition={{ duration: reduced ? 0 : 0.12 }}>{LABELS[id]}<span>{LINES[id]}</span></m.div></AnimatePresence></div>
           <div className="picker-thumbs" role="radiogroup" aria-labelledby="picker-title" onKeyDown={onThumbKey}>
             {PICKER_SPECIES.map((s, i) => (
-              <button key={s} ref={el => { thumbs.current[i] = el; }} type="button" role="radio" aria-checked={i === index}
+              <m.button key={s} ref={el => { thumbs.current[i] = el; }} type="button" role="radio" aria-checked={i === index}
                 aria-label={LABELS[s]} tabIndex={i === index ? 0 : -1}
-                className={i === index ? "is-active" : ""} onClick={() => go(i)}>
+                className={i === index ? "is-active" : ""} onClick={() => go(i)}
+                animate={{ scale: reduced ? 1 : i === index ? 1.025 : 1 }} whileHover={reduced ? undefined : { scale: 1.035 }} whileTap={reduced ? undefined : { scale: 0.98 }} transition={{ type: 'spring', stiffness: 380, damping: 28 }}>
                 <img src={`${import.meta.env.BASE_URL}assets/picker/${s}-31.webp`} alt="" width="40" height="40" />
-              </button>
+              </m.button>
             ))}
           </div>
         </div>

@@ -24,15 +24,25 @@ export function TreeScene({ paused, reduced, time, onDay }: {
 
   useEffect(() => {
     if (!canvas.current) return;
-    // The boot loader stays until every tree frame is in, showing real progress; a dead connection still gets the
-    // page after 45 seconds, with frames filling in as they arrive.
+    // Reveal the hero and its neighbouring trees as one composed scene.
+    // The HTML still becomes available on a slow connection without revealing partial trees.
     const boot = document.getElementById("boot");
-    const reveal = () => document.documentElement.classList.add("is-loaded");
-    const safety = window.setTimeout(reveal, 45_000);
-    controller.current = createScene(canvas.current, latest.current, day => dayCallback.current(day), (done, total) => {
+    const reveal = () => {
+      if (document.documentElement.classList.contains('is-loaded')) return;
+      document.documentElement.classList.add('is-loaded');
+      performance.mark('thrivling:usable');
+      if (canvas.current) canvas.current.dataset.usableMs = String(Math.round(performance.now()));
+    };
+    const safety = window.setTimeout(reveal, 3_000);
+    controller.current = createScene(canvas.current, latest.current, day => dayCallback.current(day), (done, total, sceneReady) => {
       const p = total ? done / total : 1;
       boot?.style.setProperty("--p", p.toFixed(3));
       boot?.setAttribute("aria-valuenow", String(Math.round(p * 100)));
+      if (sceneReady) {
+        canvas.current?.setAttribute('data-scene-ready', 'true');
+        window.clearTimeout(safety);
+        reveal();
+      }
       if (done >= total) { window.clearTimeout(safety); reveal(); }
     });
     return () => { window.clearTimeout(safety); controller.current?.dispose(); controller.current = undefined; };
@@ -40,5 +50,5 @@ export function TreeScene({ paused, reduced, time, onDay }: {
 
   useEffect(() => { controller.current?.update({ paused, reduced, time }); }, [paused, reduced, time]);
 
-  return <canvas ref={canvas} className="scene-canvas" role="img" aria-label="A grove of Thrivling trees on a grassy hill, with bees, butterflies and ladybirds" />;
+  return <canvas ref={canvas} className="scene-canvas" data-scene-ready="false" role="img" aria-label="A grove of Thrivling trees on a grassy hill, with bees, butterflies and ladybirds" />;
 }

@@ -36,7 +36,7 @@ interface Critter {
   cols: readonly [string, string]; ph: number; pos: P2; dir: number; resting?: boolean; ang?: number; fled?: boolean;
   x?: number; y?: number; x0?: number; x1?: number; born?: number; life?: number; pause?: number;
 }
-interface Fly { x: number; y: number; a: number; sp: number; ph: number; w: number; k: number; out?: boolean }
+interface Fly { x: number; y: number; a: number; sp: number; ph: number; w: number; k: number; turn: number; speed: number; next: number; out?: boolean }
 
 const ease = (u: number) => u * u * (3 - 2 * u);
 const pt = (p: LifePoint): P2 => Array.isArray(p) ? p : [p.mx, p.my];
@@ -48,6 +48,7 @@ const isGround = (k: Kind) => k === "ladybird" || k === "beetle" || k === "squir
 export function createLife(): Life {
   const crit: Critter[] = [], flies: Fly[] = [], falls: AmbientFall[] = [];
   let alwaysOnScenery = false;
+  let nextFirefly = 0;
   const next: Partial<Record<Kind, number>> = {};
   const count = (k: Kind) => crit.reduce((n, c) => n + Number(c.kind === k), 0);
   const due = (k: Kind, t: number, every: number) => {
@@ -175,17 +176,35 @@ export function createLife(): Life {
     const want = rain ? 0 : Math.floor(fireflyBase * Math.max(0, Math.min(1, lively)));
     let activeFlies = 0;
     for (const f of flies) if (!f.out) activeFlies++;
-    while (activeFlies++ < want)
-      flies.push({ x: rnd(air[0], air[2]), y: rnd(air[1], air[3]), a: rnd(0, 6), sp: rnd(0.4, 0.8), ph: rnd(0, 6), w: rnd(0.6, 1.2), k: 0 });
+    if (activeFlies < want && t >= nextFirefly) {
+      const angle = rnd(0, Math.PI * 2), speed = rnd(0.08, 0.5);
+      flies.push({ x: rnd(air[0], air[2]), y: rnd(air[1], air[3]), a: angle, sp: speed, ph: rnd(0, Math.PI * 2), w: rnd(0.45, 1.1), k: 0, turn: angle, speed, next: t + rnd(1200, 6000) });
+      nextFirefly = t + rnd(250, 950);
+    }
     let keep = want;
     for (let i = flies.length - 1; i >= 0; i--) {
       const f = flies[i]!;
       if (!f.out && keep-- <= 0) f.out = true;
       f.k = Math.max(0, Math.min(1, f.k + (f.out ? -dt : dt) * 0.8));
       if (f.out && !f.k) { flies.splice(i, 1); continue; }
-      f.a += Math.sin(t * 0.0007 + f.ph) * dt * 1.6;
-      f.x += Math.cos(f.a) * f.sp * s * 2 * dt; f.y += Math.sin(f.a) * f.sp * s * 1.2 * dt;
-      if (f.x < air[0] || f.x > air[2] || f.y < air[1] || f.y > air[3]) f.a += Math.PI * dt * 2;
+      // Slow, free wandering: no invisible wall around the air region.
+      const flyDt = Math.min(dt, 0.05);
+      if (t >= f.next) {
+        f.turn = f.a + rnd(-1.4, 1.4);
+        f.speed = Math.random() < 0.4 ? rnd(0.02, 0.08) : rnd(0.2, 0.65);
+        f.next = t + rnd(1800, 6500);
+      }
+      const turn = Math.atan2(Math.sin(f.turn - f.a), Math.cos(f.turn - f.a));
+      f.a += turn * (1 - Math.exp(-flyDt * 0.65));
+      f.sp += (f.speed - f.sp) * (1 - Math.exp(-flyDt * 1.2));
+      f.x += Math.cos(f.a) * f.sp * s * 3.2 * flyDt;
+      f.y += Math.sin(f.a) * f.sp * s * 2.6 * flyDt;
+      // Recycle only well beyond the entire scene, fading the replacement in.
+      const [viewLeft, viewRight] = sc.view ?? [0, sc.W];
+      const margin = Math.max(sc.W, sc.H) * 0.2;
+      if (f.x < viewLeft - margin || f.x > viewRight + margin || f.y < -margin || f.y > sc.H + margin) {
+        f.x = rnd(air[0], air[2]); f.y = rnd(air[1], air[3]); f.k = 0;
+      }
       const g = Math.max(0, Math.sin(t * 0.0021 * f.w + f.ph)) ** 2;
       ctx.globalAlpha = f.k; firefly(ctx, f.x, f.y, s * 0.6, 0.25 + 0.75 * g);
     }
@@ -279,6 +298,6 @@ export function createLife(): Life {
   return {
     step,
     busy: () => crit.length > 0 || flies.length > 0 || falls.length > 0 || alwaysOnScenery,
-    reset() { crit.length = 0; flies.length = 0; falls.length = 0; alwaysOnScenery = false; for (const k of Object.keys(next) as Kind[]) delete next[k]; },
+    reset() { crit.length = 0; flies.length = 0; falls.length = 0; nextFirefly = 0; alwaysOnScenery = false; for (const k of Object.keys(next) as Kind[]) delete next[k]; },
   };
 }

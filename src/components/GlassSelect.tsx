@@ -1,4 +1,21 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import { AnimatePresence, useIsPresent } from 'motion/react';
+import * as m from 'motion/react-m';
+import { useReducedMotionPreference } from '../useReducedMotionPreference';
+
+function SelectSurface({ children, list, id, active, onKeyDown, placement }: {
+  children: ReactNode; list: RefObject<HTMLUListElement | null>; id: string; active: number;
+  onKeyDown: (event: KeyboardEvent<HTMLUListElement>) => void; placement: 'above' | 'below';
+}) {
+  const present = useIsPresent();
+  const reduced = useReducedMotionPreference();
+  return <m.ul ref={list} className="glass-select-list glass-pane" role="listbox" tabIndex={-1}
+    aria-labelledby={`${id}-label`} aria-activedescendant={`${id}-${active}`} aria-hidden={!present} inert={!present}
+    onKeyDown={onKeyDown} initial={{ opacity: 0, y: reduced ? 0 : placement === 'above' ? 6 : -6 }}
+    animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: reduced ? 0 : -4 }} transition={{ duration: reduced ? 0 : 0.14 }}>
+    {children}
+  </m.ul>;
+}
 
 export interface SelectOption<T extends string> { value: T; label: string; hint?: string }
 
@@ -15,6 +32,7 @@ export function GlassSelect<T extends string>({ label, value, options, onChange,
   const trigger = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const id = useId();
+  const reduced = useReducedMotionPreference();
   const current = options.find(o => o.value === value) ?? options[0]!;
 
   useEffect(() => {
@@ -48,7 +66,7 @@ export function GlassSelect<T extends string>({ label, value, options, onChange,
   return (
     <div ref={root} className={`glass-select ${open ? "is-open" : ""}`} data-placement={placement}>
       <span id={`${id}-label`} className="glass-select-label">{label}</span>
-      <button
+      <m.button
         ref={trigger}
         type="button"
         className="glass-select-trigger"
@@ -56,21 +74,14 @@ export function GlassSelect<T extends string>({ label, value, options, onChange,
         aria-expanded={open}
         aria-labelledby={`${id}-label ${id}-value`}
         onClick={() => setOpen(o => !o)}
+        whileTap={reduced ? undefined : { scale: 0.97 }}
         onKeyDown={e => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); setOpen(true); } }}
       >
         <span id={`${id}-value`}>{current.label}</span>
         <svg aria-hidden="true" viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-      </button>
-      {open && (
-        <ul
-          ref={list}
-          className="glass-select-list glass-pane"
-          role="listbox"
-          tabIndex={-1}
-          aria-labelledby={`${id}-label`}
-          aria-activedescendant={`${id}-${active}`}
-          onKeyDown={onListKey}
-        >
+      </m.button>
+      <AnimatePresence>{open && (
+        <SelectSurface list={list} id={id} active={active} onKeyDown={onListKey} placement={placement}>
           {options.map((o, i) => (
             <li
               key={o.value}
@@ -88,8 +99,8 @@ export function GlassSelect<T extends string>({ label, value, options, onChange,
               )}
             </li>
           ))}
-        </ul>
-      )}
+        </SelectSurface>
+      )}</AnimatePresence>
     </div>
   );
 }

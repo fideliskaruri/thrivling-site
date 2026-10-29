@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - real-tree
   workflow_dispatch:
 
 permissions:
@@ -22,8 +21,6 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
-        with:
-          ref: main
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -39,23 +36,6 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build site
         run: pnpm build
-      # The real-tree variant is built from its branch into /real/, so both versions are live side by side.
-      - name: Check out the real-tree variant
-        uses: actions/checkout@v4
-        with:
-          ref: real-tree
-          path: real-tree
-        continue-on-error: true
-      - name: Build the real-tree variant
-        if: hashFiles('real-tree/package.json') != ''
-        working-directory: real-tree
-        env:
-          SITE_BASE: /thrivling-site/real/
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-          mkdir -p ../dist/real
-          cp -r dist/. ../dist/real/
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:

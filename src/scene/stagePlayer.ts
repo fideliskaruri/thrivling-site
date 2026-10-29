@@ -132,6 +132,8 @@ export class StagePlayer {
   settled = 0;
   private start = -1;
   private held = 0;
+  private disposed = false;
+  private ownsFrames: boolean;
 
   constructor(
     readonly id: PickerSpecies,
@@ -142,22 +144,38 @@ export class StagePlayer {
     load?: (place: StagePlace) => Promise<Frame | undefined>,
   ) {
     this.places = places;
+    this.ownsFrames = !!load;
     this.images = new Array(this.places.length);
     this.places.forEach((place, i) => {
       const p = load ? load(place) : stageImage(place, this.dir);
-      void p.then(img => { if (img) this.images[i] = img; }, () => {})
-        .finally(() => { this.settled++; onImage(); });
+      void p.then(img => {
+        if (!img) return;
+        if (this.disposed) {
+          if (this.ownsFrames && 'close' in img && typeof img.close === 'function') img.close();
+          return;
+        }
+        this.images[i] = img;
+      }, () => {})
+        .finally(() => { if (!this.disposed) { this.settled++; onImage(); } });
     });
   }
 
   /** Frees decoded frames (ImageBitmaps hold memory until closed). */
   dispose() {
-    for (const f of this.images) if (f && "close" in f && typeof f.close === "function") f.close();
+    this.disposed = true;
+    for (const f of this.images) if (this.ownsFrames && f && "close" in f && typeof f.close === "function") f.close();
     this.images = [];
   }
 
   restart() { this.start = -1; this.held = 0; }
   get loadedFirst() { return !!this.images[0]; }
+  isLoaded(index: number) { return !!this.images[index]; }
+  /** The continuous decoded prefix can play without jumping across missing frames. */
+  get loadedProgress() {
+    let count = 0;
+    while (count < this.images.length && this.images[count]) count++;
+    return Math.max(0, count - 1) / Math.max(1, this.places.length - 1);
+  }
 
   /** Stage index, how far the next has faded in, and whether growth has finished. */
   at(now: number, still: boolean): { i: number; blend: number; done: boolean } {

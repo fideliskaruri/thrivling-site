@@ -1,3 +1,6 @@
+import treeCapture from "./assets/app/wisteria.webp";
+import groveCapture from "./assets/app/grove.webp";
+
 import { useEffect, type CSSProperties } from "react";
 import { GlassSelect, type SelectOption } from "./components/GlassSelect";
 import { DayCount } from "./components/DayCount";
@@ -6,6 +9,9 @@ import { TreeScene } from "./components/TreeScene";
 import { useReducedMotionPreference } from "./useReducedMotionPreference";
 import { useSky, type SkyChoice } from "./useSky";
 import { setDay } from "./dayStore";
+import * as m from 'motion/react-m';
+import { AppScreenshot } from './components/AppScreenshot';
+import { useSiteMotion } from './useSiteMotion';
 
 const SKY_OPTIONS: SelectOption<SkyChoice>[] = [
   { value: "auto", label: "Auto", hint: "Local time" },
@@ -22,29 +28,14 @@ function BrandMark() {
   </a>;
 }
 
-/** The Play Console closed-testing list is this Google Group: joining it is joining the test. */
-const TESTER_GROUP_URL = "https://groups.google.com/g/thrivling-testers";
+const DOWNLOAD_URL = "https://play.google.com/store/apps/details?id=com.fideliskaruri.thrivling";
 
-/** The Google Play logo: four coloured triangles meeting at the centre. */
-function PlayLogo() {
-  return (
-    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-      <path d="M3.6 1.9 13.4 12 3.6 22.1c-.4-.2-.6-.6-.6-1.1V3c0-.5.2-.9.6-1.1Z" fill="#00A0FF" />
-      <path d="M3.6 1.9c.4-.2.9-.2 1.4.1l11.7 6.7-3.3 3.3Z" fill="#00E676" />
-      <path d="m16.7 8.7 3.5 2c.9.5.9 2 0 2.6l-3.5 2L13.4 12Z" fill="#FFC400" />
-      <path d="M13.4 12l3.3 3.3L5 22c-.5.3-1 .3-1.4.1Z" fill="#FF3D3D" />
-    </svg>
-  );
+function DownloadLink({ compact = false }: { compact?: boolean }) {
+  const reduced = useReducedMotionPreference();
+  return <m.a className={`download-link ${compact ? "download-link--nav" : ""}`} href={DOWNLOAD_URL} aria-label="Get Thrivling on Google Play" whileHover={reduced ? undefined : { y: -2 }} whileTap={reduced ? undefined : { scale: 0.97 }}>Get it here</m.a>;
 }
-
-/** Every "Join" goes straight to the testers group, which is the Google Play test list: one step, no detour. */
-function TesterLink({ compact = false }: { compact?: boolean }) {
-  return <a className={`tester-link ${compact ? "tester-link--nav" : ""}`} href={TESTER_GROUP_URL} target="_blank" rel="noopener" aria-label="Join early testers on Google Play">
-    {compact ? <><span className="label-full">Join early testers</span><span className="label-short" aria-hidden="true">Join</span></> : "Join early testers"}
-  </a>;
-}
-
 export default function App() {
+  useSiteMotion();
   const { choice, choose, phase, theme, notice } = useSky();
   const reduced = useReducedMotionPreference();
   useEffect(() => {
@@ -59,10 +50,13 @@ export default function App() {
       // Back-to-top steps aside while the tree picker is in front, so it never covers the picker's controls.
       const r = picker?.getBoundingClientRect();
       set("picking", !!r && r.top < h * 0.6 && r.bottom > h * 0.4);
+      const footer = document.querySelector('.site-footer')?.getBoundingClientRect();
+      root.style.setProperty('--to-top-bottom', `${Math.max(20, footer ? h - footer.top + 14 : 20)}px`);
     };
     on();
     window.addEventListener("scroll", on, { passive: true });
-    return () => window.removeEventListener("scroll", on);
+    window.addEventListener("resize", on);
+    return () => { window.removeEventListener("scroll", on); window.removeEventListener("resize", on); root.style.removeProperty('--to-top-bottom'); };
   }, []);
   const style = {
     "--sky-top": theme.sky[0], "--sky-mid": theme.sky[1], "--sky-bottom": theme.sky[2],
@@ -94,7 +88,6 @@ export default function App() {
           </nav>
           <div className="nav-tools">
             <GlassSelect label="Sky" value={choice} options={SKY_OPTIONS} onChange={choose} placement="below" />
-            <TesterLink compact />
           </div>
           </div>
         </div>
@@ -111,9 +104,9 @@ export default function App() {
           <div className="hero-inner">
           <div className="hero-copy">
             <h1 id="hero-title">Progress that feels alive.</h1>
-            <p className="hero-subhead">Whether you’re growing a daily ritual or quietly outgrowing a vice, Thrivling turns your days into a living companion.</p>
-            <TesterLink />
-            {!reduced && <p className="scroll-hint" aria-hidden="true"><span className="scroll-hint-mouse" /><span className="scroll-hint-swipe" /> Scroll to grow it</p>}
+            <p className="hero-subhead">Track the habits you want to build and the ones you want to break. Watch your progress grow into a grove of your own.</p>
+            <DownloadLink />
+            {!reduced && <p className="scroll-hint" aria-hidden="true"><span className="scroll-hint-mouse" /><span className="scroll-hint-swipe" /> Scroll to watch it grow</p>}
           </div>
 
           </div>
@@ -122,38 +115,43 @@ export default function App() {
         <section className="story-section" id="grove" aria-labelledby="grove-title">
           <div className="story-panel story-panel--narrow glass-pane">
             <h2 id="grove-title">Grow what nourishes you. Outgrow what doesn't.</h2>
-            <p>Two goals can grow side by side. To anyone else, they are simply trees in a quiet grove.</p>
+            <p>A morning walk. Less scrolling. Whatever you’re working on, give it a tree of its own.</p>
           </div>
         </section>
 
         <section className="story-section" aria-labelledby="days-title">
           <div className="story-panel story-panel--wide glass-pane">
             <h2 id="days-title">Good days and hard days both count.</h2>
-            <p>Mark a day done when you showed up for yourself. Skip the ones that went differently. A skip leaves a few fallen leaves, never a reset, so your tree keeps growing with you.</p>
+            <p>Mark a day done or skip it. A skipped day leaves a few fallen leaves, but your progress stays.</p>
           </div>
         </section>
 
         <TreePicker reduced={reduced} />
 
-        <section className="app-section app-section--solo" id="early-testers" aria-labelledby="app-title">
+        <section className="app-section app-showcase" id="app" aria-labelledby="app-title">
           <div className="app-copy glass-pane">
             <h2 id="app-title">Your grove, in your pocket.</h2>
-            <p>Check in with one tap, watch each tree grow, and keep the whole story private on your phone.</p>
-            <a className="play-badge" href={TESTER_GROUP_URL} target="_blank" rel="noopener">
-              <PlayLogo />
-              <span><small>Join early testers on</small>Google Play</span>
-            </a>
-            <p className="tester-note">Join with your Google account. When testing opens, you'll get the install link by email.</p>
+          </div>
+          <div className="app-screens" aria-label="Thrivling app preview">
+
+            <AppScreenshot src={treeCapture} alt="A nearly grown Wisteria tree in Thrivling, with cascading purple flowers and 27 of 30 days recorded" title="Small steps. Beautiful growth." description="Your daily progress takes its own shape." />
+            <AppScreenshot src={groveCapture} alt="Thrivling Grove showing trees together on a grassy island" title="Your progress, together." description="A place for every beginning." />
           </div>
         </section>
-        {/* The camera's last stop: the whole grove, standing above the footer. */}
-        <section className="grove-end" aria-label="The whole grove" />
-      </main>
+        <section className="grove-end grove-download" id="download" aria-labelledby="download-title">
+          <div className="download-copy glass-pane">
+            <h2 id="download-title">Start with one<br />small change.</h2>
+            <p>Pick a goal. Plant your first tree.</p>
+            <m.a className="official-play" href={DOWNLOAD_URL} aria-label="Get Thrivling on Google Play" whileHover={reduced ? undefined : { y: -2 }} whileTap={reduced ? undefined : { scale: 0.97 }}>
+              <img src={`${import.meta.env.BASE_URL}assets/brand/google-play.png`} alt="Get it on Google Play" width="646" height="250" />
+            </m.a>
+          </div>
+        </section>      </main>
       <div className="site-footer-wrap">
       <footer className="site-footer glass-pane">
         <BrandMark />
         <nav aria-label="Footer">
-          <a href="#trees">Trees</a><a href="#grove">The grove</a>
+          <a href="#trees">Trees</a><a href="#app">The app</a>
         </nav>
         <p>© {new Date().getFullYear()} Thrivling</p>
       </footer>

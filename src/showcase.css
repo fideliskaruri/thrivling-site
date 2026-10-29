@@ -1,0 +1,120 @@
+/* Launch-page refinements; the existing tree scene and sky remain the backdrop. */
+.picker-name span { display: block; margin-top: 8px; }
+.hero-copy .scroll-hint {
+  display: inline-flex;
+  width: fit-content;
+  padding: 10px 14px;
+  border-radius: 18px;
+  color: var(--ink);
+  background: var(--panel);
+  opacity: 1;
+}
+.glass-pane:not(.glass-select-list) {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--panel) 72%, transparent), color-mix(in srgb, var(--panel) 52%, transparent));
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-top-color: rgb(255 255 255 / .6);
+  box-shadow: inset 0 1px 0 #ffffff40, 0 12px 30px -20px #10223135;
+  backdrop-filter: blur(18px) saturate(110%);
+  -webkit-backdrop-filter: blur(18px) saturate(110%);
+}
+.scene-canvas { opacity: 0; transition: opacity 450ms ease-out; }
+.scene-canvas[data-scene-ready='true'] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .scene-canvas { transition: none; } }
+.hero-copy h1 { font-weight: 400; letter-spacing: -.055em; line-height: 1.02; }
+.hero-subhead { line-height: 1.65; }
+.hero-copy { position: relative; isolation: isolate; }
+.hero-copy::before { content: ''; position: absolute; inset: -28px -38px; z-index: -1; pointer-events: none; background: radial-gradient(ellipse, color-mix(in srgb, var(--sky-mid) 78%, transparent), transparent 75%); }
+.site-shell .to-top { bottom: var(--to-top-bottom, 20px); }
+.app-showcase { display: flex; flex-direction: column; align-items: center; gap: 30px; padding-bottom: 20px; }
+.app-showcase .app-copy { width: min(100%, 650px); text-align: center; }
+.app-showcase .app-copy p { margin-inline: auto; }
+.app-screens { display: grid; grid-template-columns: 1fr; gap: 28px; width: min(100%, 850px); }
+.app-screens figure { display: flex; align-items: center; gap: 40px; min-width: 0; margin: 0; padding: 40px 46px; border-radius: 32px; }
+.app-screens figure:nth-of-type(2) { flex-direction: row-reverse; }
+.screen-frame { flex: 0 0 260px; width: 260px; aspect-ratio: 1440 / 2900; border-radius: 30px; overflow: hidden; position: relative; background: #283442; box-shadow: 0 30px 55px -18px #071b2966, 0 0 0 5px #3d4855, 0 0 0 6px #abb4b4; }
+/* Preserve full-resolution captures; clip 150px of status bar and 70px of gesture bar. */
+.screen-frame img { position: absolute; inset: 0 auto auto 0; display: block; width: 100%; height: auto; transform: translateY(-4.8076923%); }
+.app-screens figcaption { flex: 1; min-width: 0; color: var(--ink); line-height: 1.4; overflow-wrap: anywhere; }
+.app-screens figcaption strong { display: block; font-size: 27px; font-weight: 600; line-height: 1.15; text-wrap: balance; }
+.app-screens figcaption span { display: block; margin-top: 10px; font-size: 16px; color: var(--soft); }
+.grove-download { height: auto; min-height: 58svh; display: flex; align-items: flex-start; justify-content: center; padding: 10px 24px 10svh; }
+.download-copy { text-align: center; max-width: 600px; padding: 30px 36px; border-radius: 28px; }
+.download-copy h2 { font-weight: 400; letter-spacing: -.045em; line-height: 1.08; font-size: clamp(36px, 4vw, 58px); }
+.download-copy p { margin-top: 18px; }
+.official-play { display: inline-block; width: 210px; margin-top: 15px; border-radius: 14px; }
+.official-play img { display: block; width: 100%; height: auto; }
+@media (max-width: 700px) {
+  .hero-inner { padding-inline: 24px; }
+  .hero-copy h1 { font-size: clamp(46px, 12.5vw, 62px); }
+  .hero-subhead { font-size: 16px; max-width: 32ch; line-height: 1.55; }
+  .story-section { min-height: 82svh; padding-top: 72px; }
+  .story-panel { padding: 24px 22px; }
+  .story-panel > p { font-size: 16px; line-height: 1.6; }
+  .nav-tools .download-link--nav { padding-inline: 14px; }
+  .picker-thumbs { gap: 10px; }
+  .app-showcase { padding-inline: 14px; gap: 24px; }
+  .app-screens { gap: 22px; }
+  .app-screens figure, .app-screens figure:nth-of-type(2) { flex-direction: column; gap: 22px; padding: 28px 20px; }
+  .screen-frame { flex-basis: auto; width: min(100%, 260px); border-radius: 24px; box-shadow: 0 22px 35px -18px #071b2970, 0 0 0 3px #3d4855, 0 0 0 4px #abb4b4; }
+  .app-screens figcaption { text-align: center; }
+  .app-screens figcaption strong { font-size: 23px; }
+  .grove-download { min-height: 52svh; padding-bottom: 8svh; }
+  .download-copy { padding: 27px 22px; width: 100%; }
+  .download-copy h2 { font-size: 38px; }
+  .download-copy p { font-size: 16px; }
+}
+/* An opaque menu stays legible over screenshots and nested glass surfaces. */
+.glass-select-list.glass-pane {
+  animation: none;
+  background: var(--panel);
+  color: var(--ink);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.glass-select-list li.is-active { background: color-mix(in srgb, var(--ink) 12%, var(--panel)); }
+/* Isolated, simpler landing-page composition. */
+.site-shell .hero-day-count { overflow: hidden; }
+.site-shell .day-digit { animation: preview-digit-roll 300ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes preview-digit-roll {
+  from { opacity: 0; transform: translateY(65%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .site-shell .day-digit { animation: none; }
+}
+.site-shell .app-screens figure.glass-pane {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+.site-shell .app-showcase { gap: 38px; padding-top: 60px; padding-bottom: 50px; }
+.site-shell .app-copy { padding: 20px 28px; width: fit-content; max-width: calc(100% - 28px); }
+.site-shell .app-copy > p, .site-shell .app-screens figcaption { display: none; }
+.site-shell .app-screens { grid-template-columns: 1fr 1fr; width: min(100%, 580px); gap: 0; padding: 20px 36px 28px; }
+.site-shell .app-screens figure, .site-shell .app-screens figure:nth-of-type(2) { display: flex; flex-direction: column; padding: 0; }
+.site-shell .app-screens .screen-frame { flex: none; width: min(100%, 235px); border-radius: 28px; }
+.site-shell .app-screens figure:first-child .screen-frame { rotate: -6deg; translate: 20px 0; z-index: 2; }
+.site-shell .app-screens figure:nth-of-type(2) .screen-frame { rotate: 7deg; translate: -20px 26px; z-index: 1; }
+.site-shell :is(.story-panel,.app-copy,.download-copy,.site-footer,.picker-card).glass-pane {
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  border-top-color: rgb(255 255 255 / .35);
+  box-shadow: inset 0 1px 0 #ffffff18, 0 8px 24px -20px #10223140;
+  backdrop-filter: blur(14px) saturate(100%);
+  -webkit-backdrop-filter: blur(14px) saturate(100%);
+  text-shadow: none;
+}
+.site-shell .download-copy { padding: 28px 30px; }
+.site-shell .grove-download { min-height: 45svh; }
+.site-shell .nav-glass { background: linear-gradient(140deg, color-mix(in srgb, var(--panel) 72%, transparent), color-mix(in srgb, var(--panel) 52%, transparent)); }
+@media(max-width:600px) {
+  .site-shell .app-showcase { padding-inline: 20px; gap: 28px; }
+  .site-shell .app-screens { padding-inline: 14px; padding-bottom: 24px; }
+  .site-shell .app-screens .screen-frame { border-radius: 20px; }
+  .site-shell .app-screens figure:first-child .screen-frame { translate: 10px 0; }
+  .site-shell .app-screens figure:nth-of-type(2) .screen-frame { translate: -10px 22px; }
+  .site-shell .app-copy h2 { font-size: 34px; }
+}
+
