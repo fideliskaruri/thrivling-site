@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Git revision to publish (use an earlier commit for a deployment rollback)'
+        required: true
+        default: 'main'
 
 permissions:
   contents: read
@@ -21,6 +26,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.revision || github.sha }}
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
