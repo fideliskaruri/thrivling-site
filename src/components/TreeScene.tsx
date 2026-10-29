@@ -7,6 +7,7 @@ export function TreeScene({ paused, reduced, time, onDay }: {
   paused: boolean; reduced: boolean; time: LifeTime; onDay: (day: number) => void;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const flights = useRef<HTMLCanvasElement>(null);
   const controller = useRef<SceneController | undefined>(undefined);
   const dayCallback = useRef(onDay);
   dayCallback.current = onDay;
@@ -40,15 +41,16 @@ export function TreeScene({ paused, reduced, time, onDay }: {
       boot?.setAttribute("aria-valuenow", String(Math.round(p * 100)));
       if (sceneReady) {
         canvas.current?.setAttribute('data-scene-ready', 'true');
+        flights.current?.setAttribute('data-scene-ready', 'true');
         window.clearTimeout(safety);
         reveal();
       }
       if (done >= total) { window.clearTimeout(safety); reveal(); }
-    });
+    }, flights.current ?? undefined);
     return () => { window.clearTimeout(safety); controller.current?.dispose(); controller.current = undefined; };
   }, [narrow]);
 
   useEffect(() => { controller.current?.update({ paused, reduced, time }); }, [paused, reduced, time]);
 
-  return <canvas ref={canvas} className="scene-canvas" data-scene-ready="false" role="img" aria-label="A grove of Thrivling trees on a grassy hill, with bees, butterflies and ladybirds" />;
+  return <><canvas ref={canvas} className="scene-canvas" data-scene-ready="false" role="img" aria-label="A grove of Thrivling trees on a grassy hill, with bees, butterflies and ladybirds" /><canvas ref={flights} className="scene-canvas flight-canvas" data-scene-ready="false" aria-hidden="true" /></>;
 }

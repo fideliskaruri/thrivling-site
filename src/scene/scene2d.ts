@@ -18,6 +18,8 @@ export interface SceneController { update(options: SceneOptions): void; dispose(
 const HERO = "cherry";
 /** Where the ground meets the trunk in the picker square. */
 const GROUND = 690;
+// The full-screen animated backdrop needs less pixel density than product screenshots or text.
+const SCENE_DPR_CAP = 1.5;
 type GroveId = keyof typeof STAGES;
 /** The grove in the wide shot: x as a fraction of the width, size relative to the hero, and which hill it stands on. */
 /**
@@ -66,19 +68,48 @@ export function createScene(
   options: SceneOptions,
   onDay: (day: number) => void,
   onProgress: (done: number, total: number, firstFrameReady: boolean) => void,
+  flightCanvas?: HTMLCanvasElement,
 ): SceneController {
   const context = canvas.getContext("2d");
   if (!context) throw new Error("This browser could not start the tree's canvas.");
   const g: CanvasRenderingContext2D = context;
+  const flightContext = flightCanvas?.getContext('2d');
+  let cameraGeometry = '';
   let settings = options;
   let disposed = false;
   let raf = 0;
   let width = 0, height = 0, dpr = 1;
   let last = 0, clock = 0, lastDay = -1;
+  let nextPaintAt = 0;
+  const paintInterval = 1000 / 60;
   let shown = 0;
   const profiling = import.meta.env.DEV && new URLSearchParams(location.search).has('perf');
   let profileStart = 0;
   const intervals: number[] = [], renderTimes: number[] = [];
+  const scrollIntervals: number[] = [], scrollDraws: number[] = [];
+  let lastScrollAt = -Infinity;
+  let diagnosticPanel: HTMLElement | undefined;
+  let diagnosticOutput: HTMLElement | undefined;
+  if (profiling) {
+    diagnosticPanel = document.createElement('aside');
+    diagnosticPanel.setAttribute('aria-label', 'Scene performance diagnostics');
+    diagnosticPanel.style.cssText = 'position:fixed;z-index:100;left:12px;bottom:12px;max-width:300px;padding:10px 12px;border-radius:12px;background:#142521;color:#f1f4fb;font:12px/1.5 system-ui;box-shadow:0 2px 12px #0004';
+    diagnosticOutput = document.createElement('div');
+    diagnosticOutput.textContent = 'Scene diagnostics · scroll to collect samples';
+    const reset = document.createElement('button');
+    reset.type = 'button'; reset.textContent = 'Reset scroll measurements';
+    reset.style.cssText = 'margin-top:6px;padding:5px 8px;border:1px solid #fff6;border-radius:6px;color:inherit;background:transparent;font:inherit;cursor:pointer';
+    reset.onclick = () => { scrollIntervals.length = 0; scrollDraws.length = 0; diagnosticOutput!.textContent = 'Reset · scroll to collect new samples'; };
+    diagnosticPanel.append(diagnosticOutput, reset);
+    document.body.append(diagnosticPanel);
+  }
+  let longFrames: PerformanceObserver | undefined;
+  if (profiling && PerformanceObserver.supportedEntryTypes.includes('long-animation-frame')) {
+    longFrames = new PerformanceObserver(list => {
+      canvas.dataset.longFrame = JSON.stringify(list.getEntries().map(entry => entry.toJSON()).slice(-3));
+    });
+    longFrames.observe({ type: 'long-animation-frame', buffered: true });
+  }
   let pull = 0;
   let navBottom = 0;
   let maxScroll = 1;
@@ -92,7 +123,7 @@ export function createScene(
   // Phones keep every second frame and every device decodes frames at the size they are drawn, so all of them fit
   // in memory. Prepare the initial hero and surrounding grove together before revealing them.
   const narrow = window.innerWidth < 768;
-  const dprCap = Math.min(window.devicePixelRatio || 1, 2);
+  const dprCap = Math.min(window.devicePixelRatio || 1, SCENE_DPR_CAP);
   const squarePx = Math.min(window.innerWidth * (narrow ? 1.35 : 0.7), window.innerHeight * 1.3) * dprCap * 1.1;
   const frames = narrow ? HERO_STAGES.filter((_, n) => n % 2 === 0 || n === HERO_STAGES.length - 1) : HERO_STAGES;
   const groveIds = [...new Set([...GROVE_WIDE, ...GROVE_NARROW].map(s => s.id))];
@@ -144,11 +175,12 @@ export function createScene(
   let walkers: Walker[] = [];
 
   function resize() {
-    const w = canvas.clientWidth, h = canvas.clientHeight, d = Math.min(window.devicePixelRatio || 1, 2);
+    const w = canvas.clientWidth, h = canvas.clientHeight, d = Math.min(window.devicePixelRatio || 1, SCENE_DPR_CAP);
     if (w === width && h === height && d === dpr) return;
     width = w; height = h; dpr = d;
     canvas.width = Math.round(w * d);
     canvas.height = Math.round(h * d);
+    if (flightCanvas) { flightCanvas.width = canvas.width; flightCanvas.height = canvas.height; }
     navBottom = document.querySelector(".site-header")?.getBoundingClientRect().bottom ?? 0;
     walkers = [];
     layerCache.length = 0;
@@ -196,11 +228,16 @@ export function createScene(
     const renderStart = profiling ? performance.now() : 0;
     raf = 0;
     if (disposed) return;
+    // Keep camera transforms on the compositor; painting the artwork need not run at 120/144 Hz too.
+    if (nextPaintAt && now < nextPaintAt - 0.5) { schedule(); return; }
+    nextPaintAt = nextPaintAt ? now + paintInterval - Math.max(0, now - nextPaintAt) % paintInterval : now + paintInterval;
     if (!width) resize();
-    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    const elapsed = last ? Math.max(0, (now - last) / 1000) : 0;
+    const dt = Math.min(0.05, elapsed);
     last = now;
     const step = settings.paused ? 0 : dt;
-    clock += step;
+    // Flight phase follows elapsed time, never scroll distance or the camera's interpolation.
+    if (!settings.paused) clock += elapsed;
     const mobile = width < 768;
     const y = window.scrollY;
 
@@ -227,17 +264,33 @@ export function createScene(
     const heroTop = Math.max(width * 0.25, Math.min(width * (mobile ? 1.35 : 0.7), (topGround - navBottom - 10) / 0.71));
     const zoomTop = Math.max(1, heroTop / heroWide);
     const topX = mobile ? width * 0.5 : width * 0.72;
+    const compositorCamera = !!flightContext && !settings.reduced && CSS.supports('animation-timeline: scroll()');
+    const start = Math.min(99, growEnd * 0.45 / maxScroll * 100);
+    const zoomEnd = mobile ? 1.6 : 1.35;
+    const endX = width * (mobile ? 0.5 : 0.56), endY = height * (mobile ? 0.72 : 0.83);
+    const geometry = `${compositorCamera}:${width}:${height}:${zoomTop}:${hx}:${hy}:${start}`;
+    if (geometry !== cameraGeometry) {
+      cameraGeometry = geometry;
+      canvas.dataset.camera = compositorCamera ? 'compositor' : 'canvas';
+      canvas.style.setProperty('--camera-start', `${start}%`);
+      canvas.style.setProperty('--camera-from-x', `${topX - hx * zoomTop}px`);
+      canvas.style.setProperty('--camera-from-y', `${topGround - hy * zoomTop}px`);
+      canvas.style.setProperty('--camera-from-zoom', String(zoomTop));
+      canvas.style.setProperty('--camera-to-x', `${endX - hx * zoomEnd}px`);
+      canvas.style.setProperty('--camera-to-y', `${endY - hy * zoomEnd}px`);
+      canvas.style.setProperty('--camera-to-zoom', String(zoomEnd));
+    }
 
     // Camera: close while the tree grows, pulling back and panning over the rest of the page.
     // With reduced motion the tree is fully grown but the camera still follows the reader's own scrolling.
     const pullTarget = smooth(clamp01((y - growEnd * 0.45) / Math.max(1, maxScroll - growEnd * 0.45)));
     pull = dt && !settings.reduced ? pull + (pullTarget - pull) * (1 - Math.exp(-dt * 8)) : pullTarget;
     // The last shot stays close too: the grove fills the screen with the hero just right of centre and the ground low.
-    const zoomEnd = mobile ? 1.6 : 1.35;
     const zoom = Math.exp(Math.log(zoomTop) * (1 - pull) + Math.log(zoomEnd) * pull);
     const sx = lerp(topX, width * (mobile ? 0.5 : 0.56), pull), sy = lerp(topGround, height * (mobile ? 0.72 : 0.83), pull);
     const camera = () => {
-      g.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * (sx - hx * zoom), dpr * (sy - hy * zoom));
+      if (compositorCamera) g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      else g.setTransform(dpr * zoom, 0, 0, dpr * zoom, dpr * (sx - hx * zoom), dpr * (sy - hy * zoom));
     };
     // Focus on the tree picker with one overlay across the entire world.
     const focus = pr ? smooth(clamp01(1 - Math.abs(pr.top + pr.height / 2 - height / 2) / (height * 0.7))) : 0;
@@ -385,30 +438,39 @@ export function createScene(
     // Trees nearer the camera than the hero, drawn last so they stand in front.
     for (const spot of spots) if (spot.foreground) drawTree(spot);
 
-    // Flying visitors share the grove's world coordinates and camera, on their own clock.
+    // Free flights use screen space: scrolling moves the grove, not their flight paths.
+    const flightPen = flightContext ?? g;
+    flightPen.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (flightContext) flightPen.clearRect(0, 0, width, height);
     if (!settings.reduced) {
-      sky.step(g as unknown as Pen, {
+      sky.step(flightPen as unknown as Pen, {
         W: width, H: height, s: Math.max(7, width * (mobile ? 0.018 : 0.009)),
         // Distribute across the world, rather than emitting from one side of the screen.
-        air: [-width * 0.3, height * 0.08, width * 1.3, height * 0.7],
+        air: [0, height * 0.12, width, height * 0.8],
         ground: [],
         time: settings.time, lively: 1,
         max: { butterfly: 4, bee: 4, bird: 0, firefly: 14, dragonfly: 1, ladybird: 0 },
         habitats: ["garden"],
       }, clock * 1000, step);
     }
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    camera();
     if (focus > 0) { g.fillStyle = `rgba(12, 22, 36, ${(0.22 * focus).toFixed(3)})`; g.fillRect(0, 0, width, height); }
 
     const moving = shown !== target || pull !== pullTarget || (!settings.paused && !settings.reduced);
     if (profiling) {
+      const cost = performance.now() - renderStart;
+      if (profileStart && now - lastScrollAt < 250) { scrollIntervals.push(now - profileStart); scrollDraws.push(cost); }
+      if (scrollIntervals.length > 1200) { scrollIntervals.splice(0, 300); scrollDraws.splice(0, 300); }
       if (profileStart) intervals.push(now - profileStart);
       profileStart = now;
       renderTimes.push(performance.now() - renderStart);
       if (intervals.length >= 90) {
         const sorted = [...intervals].sort((a,b) => a-b);
         const draws = [...renderTimes].sort((a,b) => a-b);
-        canvas.dataset.frameStats = JSON.stringify({ fps: +(1000 / (intervals.reduce((a,b)=>a+b,0) / intervals.length)).toFixed(1), intervalP95: +sorted[Math.floor(sorted.length * .95)]!.toFixed(1), drawP95: +draws[Math.floor(draws.length * .95)]!.toFixed(1), over33ms: intervals.filter(v=>v>33.4).length });
+        const scrolling = [...scrollIntervals].sort((a,b)=>a-b);
+        const scrollCpu = [...scrollDraws].sort((a,b)=>a-b);
+        canvas.dataset.frameStats = JSON.stringify({ fps: +(1000 / (intervals.reduce((a,b)=>a+b,0) / intervals.length)).toFixed(1), intervalP95: +sorted[Math.floor(sorted.length * .95)]!.toFixed(1), drawP95: +draws[Math.floor(draws.length * .95)]!.toFixed(1), over33ms: intervals.filter(v=>v>33.4).length, scrollSamples: scrolling.length, scrollP95: scrolling.length ? +scrolling[Math.floor(scrolling.length*.95)]!.toFixed(1) : null, scrollMax: scrolling.length ? +scrolling.at(-1)!.toFixed(1) : null, scrollDrawP95: scrollCpu.length ? +scrollCpu[Math.floor(scrollCpu.length*.95)]!.toFixed(1) : null });
+        if (diagnosticOutput) diagnosticOutput.textContent = `${canvas.dataset.camera} camera · ${(1000 / (intervals.reduce((a,b)=>a+b,0)/intervals.length)).toFixed(0)} FPS\nScroll: ${scrolling.length} samples · p95 ${scrolling.length ? scrolling[Math.floor(scrolling.length*.95)]!.toFixed(1) : '—'} ms · max ${scrolling.length ? scrolling.at(-1)!.toFixed(1) : '—'} ms`;
         intervals.length = 0; renderTimes.length = 0;
       }
     }
@@ -418,11 +480,12 @@ export function createScene(
   function schedule() {
     if (!disposed && !raf && !document.hidden) raf = requestAnimationFrame(frame);
   }
-  const visibility = () => { last = 0; schedule(); };
+  const visibility = () => { last = 0; nextPaintAt = 0; schedule(); };
+  const onScroll = () => { if (profiling) lastScrollAt = performance.now(); schedule(); };
   const remeasure = () => { width = 0; schedule(); };
   const observer = new ResizeObserver(remeasure);
   observer.observe(canvas);
-  window.addEventListener("scroll", schedule, { passive: true });
+  window.addEventListener("scroll", onScroll, { passive: true });
   document.addEventListener("visibilitychange", visibility);
   schedule();
 
@@ -434,8 +497,10 @@ export function createScene(
       observer.disconnect();
       pageObserver.disconnect();
       player.dispose();
+      longFrames?.disconnect();
+      diagnosticPanel?.remove();
       layerCache.length = 0;
-      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("scroll", onScroll);
       document.removeEventListener("visibilitychange", visibility);
     },
   };

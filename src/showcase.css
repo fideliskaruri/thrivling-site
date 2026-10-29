@@ -30,6 +30,18 @@ html[data-exploring='1'] .hero-scroll-cue { opacity: 0; visibility: hidden; poin
   -webkit-backdrop-filter: blur(18px) saturate(110%);
 }
 .scene-canvas { opacity: 0; transition: opacity 450ms ease-out; }
+.scene-canvas { transform: translateZ(0); contain: strict; }
+.scene-canvas[data-camera='compositor'] {
+  transform-origin: 0 0;
+  will-change: transform;
+  animation: grove-camera 1s cubic-bezier(.33,0,.67,1) both;
+  animation-timeline: scroll(root block);
+  animation-range: var(--camera-start, 0%) 100%;
+}
+@keyframes grove-camera {
+  from { transform: translate(var(--camera-from-x),var(--camera-from-y)) scale(var(--camera-from-zoom)); }
+  to { transform: translate(var(--camera-to-x),var(--camera-to-y)) scale(var(--camera-to-zoom)); }
+}
 .scene-canvas[data-scene-ready='true'] { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .scene-canvas { transition: none; } }
 .hero-copy h1 { font-weight: 400; letter-spacing: -.055em; line-height: 1.02; }
@@ -109,15 +121,7 @@ html[data-exploring='1'] .hero-scroll-cue { opacity: 0; visibility: hidden; poin
 .site-shell .app-screens .screen-frame { flex: none; width: min(100%, 235px); border-radius: 28px; }
 .site-shell .app-screens figure:first-child .screen-frame { rotate: -6deg; translate: 20px 0; z-index: 2; }
 .site-shell .app-screens figure:nth-of-type(2) .screen-frame { rotate: 7deg; translate: -20px 26px; z-index: 1; }
-.site-shell :is(.story-panel,.app-copy,.download-copy,.site-footer,.picker-card).glass-pane {
-  background: color-mix(in srgb, var(--panel) 82%, transparent);
-  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-  border-top-color: rgb(255 255 255 / .35);
-  box-shadow: inset 0 1px 0 #ffffff18, 0 8px 24px -20px #10223140;
-  backdrop-filter: blur(14px) saturate(100%);
-  -webkit-backdrop-filter: blur(14px) saturate(100%);
-  text-shadow: none;
-}
+/* Cards share the counter's .glass-pane surface; only layout and corner radii differ. */
 .site-shell .download-copy { padding: 28px 30px; }
 .site-shell .grove-download { min-height: 45svh; }
 .site-shell .nav-glass { background: linear-gradient(140deg, color-mix(in srgb, var(--panel) 72%, transparent), color-mix(in srgb, var(--panel) 52%, transparent)); }

@@ -27,6 +27,6 @@ Auto follows the app's local-clock bands: night before 07:00, dawn until 10:00, 
 
 ## Launch presentation
 
-The app section pairs two phone captures, Wisteria first and grove second, with staggered entrance motion. Approved 1440×3120 Samsung captures live in `src/assets/app`; their status and gesture bars are clipped in CSS without changing the source resolution. `src/showcase.css` contains the launch layout refinements. Trees, ground and ambient insects share one world camera. The official Google Play badge is self-hosted in `public/assets/brand`.
+The app section pairs two phone captures, Wisteria first and grove second, with staggered entrance motion. Approved 1440×3120 Samsung captures live in `src/assets/app`; their status and gesture bars are clipped in CSS without changing the source resolution. `src/showcase.css` contains the launch layout refinements. Trees and ground share one world camera; free-flying insects animate independently in a separate canvas. Supporting browsers move the camera using a scroll timeline, with a Canvas2D fallback. The artwork paints at up to 60 FPS and 1.5× pixel density. The official Google Play badge is self-hosted in `public/assets/brand`.
 
 The Pages workflow publishes `main` only. The historical `real-tree` branch is not built or published by this workflow. Download actions use the URL defined in `src/App.tsx`.
